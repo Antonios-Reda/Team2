@@ -36,7 +36,7 @@ services:
     ports: 
       - "3000:3000"
     depends_on: 
-      - db
+      - mysql
   
   webrtc_server:
     container_name: webrtc_server
