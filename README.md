@@ -12,9 +12,8 @@ Building a robust, highly available, and scalable telemedicine infrastructure. T
 1. **Kerolis Khalaf Shafik**
 2. **Antonios Reda Milad**
 3. **Mohanad Mohamed Ali**
-4. **Shahd Essam Youssef**
-5. **Yassin Wael Fawzy**
-6. **Ziad Yehia Ahmed**
+4. **Yassin Wael Fawzy**
+5. **Ziad Yehia Ahmed**
 
 ---
 
