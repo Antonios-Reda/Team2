@@ -2,13 +2,15 @@ pipeline {
 
     agent any
 
-environment {
-    registryCredential = 'dockerhub_id'
-    DOCKER_REGISTRY = 'https://registry.hub.docker.com'
-    NODEJS_HOME = tool 'node18'
-    PATH = "${NODEJS_HOME}/bin:${env.PATH}"
-    NODE_OPTIONS = "--openssl-legacy-provider"
-}
+    environment {
+        registryCredential = 'dockerhub_id'
+        DOCKER_REGISTRY = 'https://registry.hub.docker.com'
+        NODEJS_HOME = tool 'node18'
+        PATH = "${NODEJS_HOME}/bin:${env.PATH}"
+        NODE_OPTIONS = "--openssl-legacy-provider"
+        IMAGE_TAG = "${BUILD_NUMBER}"
+        DOCKER_USER = "antoniosreda"
+    }
 
     stages {
 
@@ -22,14 +24,9 @@ environment {
             steps {
                 sh '''
                 set -e
-                cd Backend
-                npm ci
-
-                cd ../Ng-frontend
-                npm ci
-
-                cd ../WebRTC_Signaling_Server
-                npm ci
+                cd Backend && npm ci
+                cd ../Ng-frontend && npm ci
+                cd ../WebRTC_Signaling_Server && npm ci
                 '''
             }
         }
@@ -66,38 +63,42 @@ environment {
             steps {
                 sh '''
                 docker rmi telemedicine_webrtc_server telemedicine_frontend telemedicine_backend 2>/dev/null || true
-                docker rmi antoniosreda/telemedicine_webrtc_server antoniosreda/telemedicine_frontend antoniosreda/telemedicine_backend 2>/dev/null || true
+                docker rmi antoniosreda/telemedicine-webrtc_server 2>/dev/null || true
+                docker rmi antoniosreda/telemedicine-frontend 2>/dev/null || true
+                docker rmi antoniosreda/telemedicine-backend 2>/dev/null || true
                 '''
             }
         }
 
-        stage('Docker Containerization') {
+        stage('Docker Build') {
             steps {
-                sh 'docker compose build'
+                sh '''
+                docker build -t telemedicine-backend:latest ./Backend
+                docker build -t telemedicine-frontend:latest ./Ng-frontend
+                docker build -t telemedicine-webrtc_server:latest ./WebRTC_Signaling_Server
+                '''
             }
         }
 
         stage('Tag Docker Images') {
             steps {
                 sh '''
-                docker tag telemedicine-webrtc_server antoniosreda/telemedicine-webrtc_server:${BUILD_NUMBER}
-                docker tag telemedicine-frontend antoniosreda/telemedicine-frontend:${BUILD_NUMBER}
-                docker tag telemedicine-backend antoniosreda/telemedicine-backend:${BUILD_NUMBER}
+                docker tag telemedicine-webrtc_server:latest $DOCKER_USER/telemedicine-webrtc_server:$IMAGE_TAG
+                docker tag telemedicine-frontend:latest $DOCKER_USER/telemedicine-frontend:$IMAGE_TAG
+                docker tag telemedicine-backend:latest $DOCKER_USER/telemedicine-backend:$IMAGE_TAG
                 '''
             }
         }
 
-        stage('Deploy on Docker Hub') {
+        stage('Push to Docker Hub') {
             steps {
-                script {
-                    docker.withRegistry(DOCKER_REGISTRY, registryCredential) {
-                        sh '''
-                        docker push antoniosreda/telemedicine-webrtc_server:${BUILD_NUMBER}
-                        docker push antoniosreda/telemedicine-frontend:${BUILD_NUMBER}
-                        docker push antoniosreda/telemedicine-backend:${BUILD_NUMBER}
-                        '''
-                    }
-                }
+                sh '''
+                echo $DOCKERHUB_PASS | docker login -u $DOCKER_USER --password-stdin
+
+                docker push $DOCKER_USER/telemedicine-webrtc_server:$IMAGE_TAG
+                docker push $DOCKER_USER/telemedicine-frontend:$IMAGE_TAG
+                docker push $DOCKER_USER/telemedicine-backend:$IMAGE_TAG
+                '''
             }
         }
 
