@@ -80,9 +80,9 @@ environment {
         stage('Tag Docker Images') {
             steps {
                 sh '''
-                docker tag telemedicine_webrtc_server antoniosreda/telemedicine_webrtc_server:${BUILD_NUMBER}
-                docker tag telemedicine_frontend antoniosreda/telemedicine_frontend:${BUILD_NUMBER}
-                docker tag telemedicine_backend antoniosreda/telemedicine_backend:${BUILD_NUMBER}
+                docker tag telemedicine-webrtc_server antoniosreda/telemedicine-webrtc_server:${BUILD_NUMBER}
+                docker tag telemedicine-frontend antoniosreda/telemedicine-frontend:${BUILD_NUMBER}
+                docker tag telemedicine-backend antoniosreda/telemedicine-backend:${BUILD_NUMBER}
                 '''
             }
         }
@@ -92,9 +92,9 @@ environment {
                 script {
                     docker.withRegistry(DOCKER_REGISTRY, registryCredential) {
                         sh '''
-                        docker push antoniosreda/telemedicine_webrtc_server:${BUILD_NUMBER}
-                        docker push antoniosreda/telemedicine_frontend:${BUILD_NUMBER}
-                        docker push antoniosreda/telemedicine_backend:${BUILD_NUMBER}
+                        docker push antoniosreda/telemedicine-webrtc_server:${BUILD_NUMBER}
+                        docker push antoniosreda/telemedicine-frontend:${BUILD_NUMBER}
+                        docker push antoniosreda/telemedicine-backend:${BUILD_NUMBER}
                         '''
                     }
                 }
