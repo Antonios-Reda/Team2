@@ -23,9 +23,9 @@ pipeline {
             steps {
                 sh '''
                 set -e
-                cd Backend && npm ci
-                cd ../Ng-frontend && npm ci
-                cd ../WebRTC_Signaling_Server && npm ci
+                cd Backend && npm install
+                cd ../Ng-frontend && npm install 
+                cd ../WebRTC_Signaling_Server && npm install
                 '''
             }
         }
