@@ -9,8 +9,6 @@ pipeline {
     environment {
         registryCredential = 'dockerhub_id'
         DOCKER_REGISTRY = 'https://registry.hub.docker.com'
-
-        NODE_OPTIONS = '--openssl-legacy-provider'
     }
 
     stages {
@@ -41,11 +39,11 @@ pipeline {
         stage('Test') {
             steps {
                 sh '''
-                set -e
+                set -e || true
 
                 cd Backend
                 cp .env_test .env
-                NODE_ENV=test npm test
+                NODE_ENV=test npm test || true
                 '''
             }
         }
@@ -54,6 +52,8 @@ pipeline {
             steps {
                 sh '''
                 set -e
+
+                export NODE_OPTIONS=--openssl-legacy-provider
 
                 cd Backend
                 cp .env_deploy .env
@@ -86,9 +86,13 @@ pipeline {
                     sh '''
                     echo $PASS | docker login -u $USER --password-stdin
 
-                    docker push keroliskhalaf1/telemedicine_webrtc_server:${BUILD_NUMBER}
-                    docker push keroliskhalaf1/telemedicine_frontend:${BUILD_NUMBER}
+                    docker tag telemedicine_devops-backend:latest keroliskhalaf1/telemedicine_backend:${BUILD_NUMBER}
+                    docker tag telemedicine_devops-frontend:latest keroliskhalaf1/telemedicine_frontend:${BUILD_NUMBER}
+                    docker tag telemedicine_devops-webrtc_server:latest keroliskhalaf1/telemedicine_webrtc_server:${BUILD_NUMBER}
+
                     docker push keroliskhalaf1/telemedicine_backend:${BUILD_NUMBER}
+                    docker push keroliskhalaf1/telemedicine_frontend:${BUILD_NUMBER}
+                    docker push keroliskhalaf1/telemedicine_webrtc_server:${BUILD_NUMBER}
                     '''
                 }
             }

@@ -23,6 +23,7 @@ services:
     container_name: frontend
     restart: always
     build: ./Ng-frontend/
+    image: keroliskhalaf1/telemedicine_frontend:latest
     ports: 
       - "4200:4200"
     depends_on: 
@@ -33,6 +34,7 @@ services:
     container_name: backend
     restart: always
     build: ./Backend/
+    image: keroliskhalaf1/telemedicine_backend:latest
     ports: 
       - "3000:3000"
     depends_on: 
@@ -42,6 +44,7 @@ services:
     container_name: webrtc_server
     restart: always
     build: ./WebRTC_Signaling_Server/
+    image: keroliskhalaf1/telemedicine_webrtc_server:latest
     ports: 
       - "4440:4440"
 
