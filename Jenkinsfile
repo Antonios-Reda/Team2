@@ -35,13 +35,7 @@ pipeline {
 
         stage('Test') {
             steps {
-                sh '''
-                set -e
-                cd Backend
-                cp .env_test .env
-                export NODE_ENV=test
-                npm test
-                '''
+                sh 'cd Backend/ && cp .env_test .env && NODE_ENV=test npm test'
             }
         }
 
