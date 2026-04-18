@@ -4,7 +4,6 @@ const db = require("./database/db");
 
 const port = process.env.APP_PORT || 3000;
 
-// test DB connection using pool safely
 db.getConnection((err, connection) => {
   if (err) {
     console.error("DB connection failed", err);

@@ -7,22 +7,11 @@ const app = express();
 
 app.use(cors());
 app.use(express.json());
+
 app.use("/api/users", userRouter);
 
+
 module.exports = app;
-
-// connect to database only if not in test environment
-if (process.env.NODE_ENV !== "test") {
-  con.connect(function (err) {
-    if (err) {
-      console.error("Database connection failed:", err.message);
-      return;
-    }
-
-    console.log("Database connected successfully");
-  });
-}
-
 
 
 
