@@ -24,7 +24,7 @@ pipeline {
                 sh '''
                 set -e
                 cd Backend && npm install
-                cd ../Ng-frontend && npm install 
+                cd ../Ng-frontend && npm install --legacy-peer-deps
                 cd ../WebRTC_Signaling_Server && npm install
                 '''
             }
