@@ -9,6 +9,8 @@ pipeline {
     environment {
         registryCredential = 'dockerhub_id'
         DOCKER_REGISTRY = 'https://registry.hub.docker.com'
+
+        NODE_OPTIONS = '--openssl-legacy-provider'
     }
 
     stages {
@@ -23,9 +25,15 @@ pipeline {
             steps {
                 sh '''
                 set -e
-                cd Backend && npm install
-                cd ../Ng-frontend && npm install --legacy-peer-deps
-                cd ../WebRTC_Signaling_Server && npm install
+
+                cd Backend
+                npm install
+
+                cd ../Ng-frontend
+                npm install --legacy-peer-deps
+
+                cd ../WebRTC_Signaling_Server
+                npm install
                 '''
             }
         }
@@ -33,6 +41,8 @@ pipeline {
         stage('Test') {
             steps {
                 sh '''
+                set -e
+
                 cd Backend
                 cp .env_test .env
                 NODE_ENV=test npm test
@@ -44,22 +54,35 @@ pipeline {
             steps {
                 sh '''
                 set -e
-                cd Backend && cp .env_deploy .env
-                cd ../Ng-frontend && npm run build
-                cd ../WebRTC_Signaling_Server && npm run build || true
+
+                cd Backend
+                cp .env_deploy .env
+
+                cd ../Ng-frontend
+                npm run build
+
+                cd ../WebRTC_Signaling_Server
+                npm run build || true
                 '''
             }
         }
 
         stage('Docker Containerization') {
             steps {
-                sh 'docker compose build'
+                sh '''
+                set -e
+                docker compose build
+                '''
             }
         }
 
         stage('Deploy on Docker Hub') {
             steps {
-                withCredentials([usernamePassword(credentialsId: 'dockerhub_id', usernameVariable: 'USER', passwordVariable: 'PASS')]) {
+                withCredentials([usernamePassword(
+                    credentialsId: 'dockerhub_id',
+                    usernameVariable: 'USER',
+                    passwordVariable: 'PASS'
+                )]) {
                     sh '''
                     echo $PASS | docker login -u $USER --password-stdin
 
