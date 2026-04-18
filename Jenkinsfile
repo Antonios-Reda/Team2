@@ -2,12 +2,13 @@ pipeline {
 
     agent any
 
-    environment {
-        registryCredential = 'dockerhub_id'
-        DOCKER_REGISTRY = 'https://registry.hub.docker.com'
-        NODEJS_HOME = tool 'node18'
-        PATH = "${NODEJS_HOME}/bin:${env.PATH}"
-    }
+environment {
+    registryCredential = 'dockerhub_id'
+    DOCKER_REGISTRY = 'https://registry.hub.docker.com'
+    NODEJS_HOME = tool 'node18'
+    PATH = "${NODEJS_HOME}/bin:${env.PATH}"
+    NODE_OPTIONS = "--openssl-legacy-provider"
+}
 
     stages {
 
