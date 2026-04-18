@@ -90,31 +90,19 @@ pipeline {
             }
         }
 
-        stage('Push to Docker Hub') {
-            steps {
-                sh '''
-                echo $DOCKERHUB_PASS | docker login -u $DOCKER_USER --password-stdin
-
-                docker push $DOCKER_USER/telemedicine-webrtc_server:$IMAGE_TAG
-                docker push $DOCKER_USER/telemedicine-frontend:$IMAGE_TAG
-                docker push $DOCKER_USER/telemedicine-backend:$IMAGE_TAG
-                '''
-            }
-        }
-
-        stage('Deploy with Ansible') {
-            steps {
-                ansiblePlaybook(
-                    installation: 'Ansible',
-                    inventory: './ansible_deployment/ansible_inventory',
-                    playbook: './ansible_deployment/ansible_deploy.yml',
-                    colorized: true,
-                    disableHostKeyChecking: true
-                )
+stage('Push to Docker Hub') {
+    steps {
+        script {
+            docker.withRegistry('https://index.docker.io/v1/', 'dockerhub_id') {
+                sh """
+                docker push ${DOCKER_USER}/telemedicine-webrtc_server:${IMAGE_TAG}
+                docker push ${DOCKER_USER}/telemedicine-frontend:${IMAGE_TAG}
+                docker push ${DOCKER_USER}/telemedicine-backend:${IMAGE_TAG}
+                """
             }
         }
     }
-
+}
     post {
         always {
             cleanWs()
