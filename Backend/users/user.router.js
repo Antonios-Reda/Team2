@@ -1,8 +1,9 @@
 const router = require("express").Router();
 const { checkToken } = require("../middleware/jwt_validation");
 
-const userController = require("./user.controller");
+const controller = require("./user.controller");
 
+// destructuring
 const {
   createUser,
   login,
@@ -15,10 +16,14 @@ const {
   removePatientFromWaitlist,
   addPrescription,
   getPrescription,
-} = userController;
+} = controller;
+
+// ===== ROUTES =====
 
 // validate token
-router.get("/validate", checkToken, validateUser);
+if (validateUser) {
+  router.get("/validate", checkToken, validateUser);
+}
 
 // auth
 router.post("/login", login);
@@ -36,7 +41,7 @@ router.post("/removefromwaitlist", removePatientFromWaitlist);
 router.post("/addprescription", addPrescription);
 router.post("/getprescription", getPrescription);
 
-// update user
+// update
 router.patch("/", checkToken, updateUsers);
 
 // delete doctor
