@@ -55,6 +55,7 @@ pipeline {
 
                 export NODE_OPTIONS=--openssl-legacy-provider
 
+
                 cd Backend
                 cp .env_deploy .env
 
