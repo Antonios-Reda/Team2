@@ -1,0 +1,54 @@
+<div class="payments">
+  <h2>Payments</h2>
+
+  @if (isPatient) {
+    <bc-card title="Make a Payment" subtitle="Pay for your appointment via Stripe">
+      @if (!stripeReady()) {
+        <p class="warning">Configure STRIPE_PUBLISHABLE_KEY in environment to enable payments.</p>
+      }
+
+      <form [formGroup]="paymentForm" class="payment-form">
+        <div class="field">
+          <label>Appointment</label>
+          <select formControlName="appointmentId">
+            <option value="">Select appointment</option>
+            @for (apt of appointments(); track apt._id) {
+              <option [value]="apt._id">
+                {{ apt.scheduledDate | dateFormat }} — {{ apt.status | appointmentStatus }}
+              </option>
+            }
+          </select>
+        </div>
+        <bc-input label="Amount (cents)" type="number" formControlName="amount" hint="e.g. 5000 = $50.00" />
+        <div class="field">
+          <label>Payment Type</label>
+          <select formControlName="type">
+            <option value="full_payment">Full Payment</option>
+            <option value="deposit">Deposit</option>
+          </select>
+        </div>
+
+        @if (!clientSecret()) {
+          <bc-button (clicked)="createIntent()" [loading]="processing()" [disabled]="!stripeReady()">
+            Initialize Payment
+          </bc-button>
+        }
+      </form>
+
+      @if (clientSecret()) {
+        <div #paymentElement class="stripe-element"></div>
+        <div class="payment-actions">
+          <bc-button (clicked)="confirmPayment()" [loading]="processing()">Pay Now</bc-button>
+          <bc-button variant="outline" (clicked)="retry()">Retry</bc-button>
+        </div>
+      }
+    </bc-card>
+  }
+
+  <bc-card title="Payment History" subtitle="Requires GET /payment/history endpoint">
+    <p class="empty">
+      Payment history API is not yet available on the backend.
+      Transaction status updates are processed via Stripe webhooks server-side.
+    </p>
+  </bc-card>
+</div>

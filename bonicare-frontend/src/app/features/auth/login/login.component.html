@@ -1,0 +1,35 @@
+<div class="auth-form">
+  <h2>Sign in</h2>
+  <p class="auth-form__subtitle">Access your BoniCare account</p>
+
+  @if (serverError()) {
+    <div class="auth-alert auth-alert--error" role="alert">
+      {{ serverError() }}
+    </div>
+  }
+
+  <form [formGroup]="form" (ngSubmit)="onSubmit()">
+    <bc-input
+      label="Email"
+      type="email"
+      formControlName="email"
+      placeholder="you@example.com"
+      [error]="fieldError('email')"
+    />
+    <bc-input
+      label="Password"
+      type="password"
+      formControlName="password"
+      placeholder="••••••••"
+      [error]="fieldError('password')"
+    />
+
+    <bc-button type="submit" variant="primary" size="lg" [loading]="loading()" [disabled]="form.invalid">
+      Sign in
+    </bc-button>
+  </form>
+
+  <p class="auth-form__footer">
+    Don't have an account? <a routerLink="/auth/signup">Create one</a>
+  </p>
+</div>

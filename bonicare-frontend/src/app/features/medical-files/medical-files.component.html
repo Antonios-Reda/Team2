@@ -1,0 +1,42 @@
+<div class="medical-files">
+  <div class="medical-files__header">
+    <h2>Medical Files</h2>
+    <label class="upload-btn">
+      <input type="file" accept="image/*,.pdf" (change)="onFileSelected($event)" [disabled]="uploading()" hidden />
+      <bc-button [loading]="uploading()">Upload File</bc-button>
+    </label>
+  </div>
+
+  @if (uploading()) {
+    <div class="progress">
+      <div class="progress__bar" [style.width.%]="uploadProgress()"></div>
+      <span>{{ uploadProgress() }}%</span>
+    </div>
+  }
+
+  <bc-card title="Your Documents">
+    @if (loading()) {
+      <p>Loading files...</p>
+    } @else if (files().length === 0) {
+      <p class="empty">No medical files uploaded yet. Upload X-rays, MRI scans, or PDF reports.</p>
+    } @else {
+      <div class="file-grid">
+        @for (file of files(); track file._id ?? file.filename) {
+          <div class="file-card">
+            <div class="file-card__icon">
+              {{ (file.mimeType ?? file.mimetype ?? '').includes('pdf') ? '📄' : '🖼️' }}
+            </div>
+            <div class="file-card__info">
+              <strong>{{ getFileName(file) }}</strong>
+              <span>{{ file.uploadedAt | dateFormat }}</span>
+              @if (file.size) {
+                <span>{{ (file.size / 1024).toFixed(1) }} KB</span>
+              }
+            </div>
+          </div>
+        }
+      </div>
+      <p class="note">Download and delete require backend routes (see review report).</p>
+    }
+  </bc-card>
+</div>

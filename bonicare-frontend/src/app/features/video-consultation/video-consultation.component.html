@@ -1,0 +1,80 @@
+<div class="video-page">
+  <h2>Video Consultation</h2>
+
+  @if (!webrtc.signalingAvailable()) {
+    <div class="alert alert--warning">
+      <strong>WebRTC signaling not available.</strong>
+      The backend Socket.IO server does not yet implement WebRTC signaling events
+      (<code>call:offer</code>, <code>call:answer</code>, <code>call:ice-candidate</code>).
+      See <code>docs/BACKEND_REVIEW_REPORT.md</code> for required backend changes.
+      In-call chat via existing Socket.IO events may still work.
+    </div>
+  }
+
+  <div class="video-page__layout">
+    <bc-card title="Start Consultation">
+      <form [formGroup]="appointmentForm" class="start-form">
+        <select formControlName="appointmentId">
+          <option value="">Select scheduled appointment</option>
+          @for (apt of appointments(); track apt._id) {
+            <option [value]="apt._id">{{ apt.scheduledDate | dateFormat }} — {{ apt.startTime | dateFormat:'time' }}</option>
+          }
+        </select>
+        @if (webrtc.callState() === 'idle' || webrtc.callState() === 'ended' || webrtc.callState() === 'failed') {
+          <bc-button (clicked)="startCall()">Start Call</bc-button>
+        } @else {
+          <bc-button variant="danger" (clicked)="endCall()">End Call</bc-button>
+        }
+      </form>
+
+      <div class="status-bar">
+        <bc-badge [label]="'Call: ' + webrtc.callState()" variant="primary" />
+        <bc-badge [label]="'Socket: ' + (socket.connected() ? 'connected' : 'disconnected')" variant="default" />
+        <bc-badge [label]="'Network: ' + webrtc.networkQuality()" [variant]="webrtc.networkQuality() === 'good' ? 'success' : 'warning'" />
+      </div>
+    </bc-card>
+
+    <div class="video-grid">
+      <div class="video-panel">
+        <video #localVideo autoplay playsinline muted class="video-feed"></video>
+        <span class="video-label">You</span>
+      </div>
+      <div class="video-panel">
+        <video #remoteVideo autoplay playsinline class="video-feed"></video>
+        <span class="video-label">Remote</span>
+      </div>
+    </div>
+
+    <div class="controls">
+      <bc-button variant="outline" size="sm" (clicked)="webrtc.toggleAudio()">
+        {{ webrtc.mediaState().audio ? '🔊 Mute' : '🔇 Unmute' }}
+      </bc-button>
+      <bc-button variant="outline" size="sm" (clicked)="webrtc.toggleVideo()">
+        {{ webrtc.mediaState().video ? '📹 Stop Video' : '📷 Start Video' }}
+      </bc-button>
+      <bc-button variant="outline" size="sm" (clicked)="webrtc.toggleScreenShare()">
+        🖥️ Share Screen
+      </bc-button>
+    </div>
+
+    <bc-card title="In-Call Chat">
+      <div class="chat-messages">
+        @for (msg of chatMessages(); track $index) {
+          <div class="chat-msg">{{ msg.content }}</div>
+        } @empty {
+          <p class="muted">No messages yet</p>
+        }
+      </div>
+      <div class="chat-input">
+        <input
+          type="text"
+          [value]="chatMessage()"
+          (input)="chatMessage.set($any($event.target).value)"
+          placeholder="Type a message..."
+          (keyup.enter)="sendChat()"
+        />
+        <bc-button size="sm" (clicked)="sendChat()">Send</bc-button>
+      </div>
+    </bc-card>
+  </div>
+</div>

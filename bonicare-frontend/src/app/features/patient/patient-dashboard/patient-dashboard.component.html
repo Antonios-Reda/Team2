@@ -1,0 +1,75 @@
+<div class="dashboard">
+  <div class="dashboard__header">
+    <h2>Patient Dashboard</h2>
+    <p>Overview of your health records and upcoming care</p>
+  </div>
+
+  @if (loading()) {
+    <div class="dashboard__grid">
+      @for (i of [1,2,3,4]; track i) {
+        <bc-card><bc-skeleton /></bc-card>
+      }
+    </div>
+  } @else {
+    <div class="dashboard__stats">
+      <bc-card title="Medical Files" [subtitle]="files().length + ' uploaded'">
+        <div class="stat-value">{{ files().length }}</div>
+        <a routerLink="/medical-files" class="stat-link">Manage files →</a>
+      </bc-card>
+      <bc-card title="AI Reports" [subtitle]="aiReports().length + ' generated'">
+        <div class="stat-value">{{ aiReports().length }}</div>
+        <a routerLink="/ai" class="stat-link">View reports →</a>
+      </bc-card>
+      <bc-card title="Appointments" [subtitle]="appointments().length + ' total'">
+        <div class="stat-value">{{ appointments().length }}</div>
+        <a routerLink="/appointments" class="stat-link">Book appointment →</a>
+      </bc-card>
+      <bc-card title="Profile">
+        @if (patient()) {
+          <div class="profile-info">
+            <span>Gender: {{ patient()?.gender ?? 'Not set' }}</span>
+            <span>Member since: {{ patient()?.createdAt | dateFormat }}</span>
+          </div>
+        }
+      </bc-card>
+    </div>
+
+    <div class="dashboard__sections">
+      <bc-card title="Recent Appointments">
+        @if (appointments().length === 0) {
+          <p class="empty">No appointments yet. <a routerLink="/appointments">Book your first visit</a></p>
+        } @else {
+          <div class="list">
+            @for (apt of appointments().slice(0, 5); track apt._id) {
+              <div class="list-item">
+                <div>
+                  <strong>{{ apt.scheduledDate | dateFormat:'long' }}</strong>
+                  <span class="muted">{{ apt.startTime | dateFormat:'time' }} – {{ apt.endTime | dateFormat:'time' }}</span>
+                </div>
+                <bc-badge [label]="apt.status | appointmentStatus" [variant]="apt.status | statusVariant" />
+              </div>
+            }
+          </div>
+        }
+      </bc-card>
+
+      <bc-card title="Recent AI Reports">
+        @if (aiReports().length === 0) {
+          <p class="empty">No AI reports yet. <a routerLink="/ai">Run analysis</a></p>
+        } @else {
+          <div class="list">
+            @for (report of aiReports().slice(0, 5); track report._id) {
+              <div class="list-item">
+                <div>
+                  <strong>{{ report.model_name }}</strong>
+                  <span class="muted">{{ report.createdAt | dateFormat }}</span>
+                </div>
+                <bc-badge [label]="(report.confidence * 100).toFixed(0) + '% confidence'" variant="primary" />
+              </div>
+            }
+          </div>
+        }
+      </bc-card>
+    </div>
+  }
+</div>
