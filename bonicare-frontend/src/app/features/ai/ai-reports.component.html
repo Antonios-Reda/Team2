@@ -1,0 +1,80 @@
+<div class="ai-page">
+  <div class="ai-page__header">
+    <h2>AI Diagnosis Reports</h2>
+    <bc-badge
+      [label]="aiHealthy() === true ? 'AI Service Online' : aiHealthy() === false ? 'AI Service Offline' : 'Checking...'"
+      [variant]="aiHealthy() === true ? 'success' : aiHealthy() === false ? 'danger' : 'default'"
+    />
+  </div>
+
+  <div class="ai-page__grid">
+    <bc-card title="Lower Back Analysis" subtitle="Enter 12 clinical features">
+      <form [formGroup]="featureForm" (ngSubmit)="runPrediction()" class="ai-form">
+        <bc-input
+          label="Features (comma-separated)"
+          formControlName="features"
+          placeholder="63, 22, 39, 40, 98, 12, 35, 44, 28, 15, 55, 19"
+          hint="12 numeric values required"
+        />
+        <bc-button type="submit" [loading]="predicting()" [disabled]="aiHealthy() === false">
+          Run Prediction
+        </bc-button>
+      </form>
+
+      @if (lastPrediction()) {
+        <div class="result">
+          <h4>Latest Result</h4>
+          <p><strong>Model:</strong> {{ lastPrediction()!.model_name }}</p>
+          <p><strong>Prediction:</strong> {{ lastPrediction()!.output_json.prediction }}</p>
+          <p><strong>Label:</strong> {{ lastPrediction()!.output_json.label }}</p>
+          <p><strong>Confidence:</strong> {{ (lastPrediction()!.confidence * 100).toFixed(1) }}%</p>
+          @if (lastPrediction()!.output_json.probabilities) {
+            <div class="probabilities">
+              @for (prob of lastPrediction()!.output_json.probabilities; track $index) {
+                <div class="prob-bar">
+                  <span>Class {{ $index }}</span>
+                  <div class="bar"><div [style.width.%]="prob * 100"></div></div>
+                  <span>{{ (prob * 100).toFixed(1) }}%</span>
+                </div>
+              }
+            </div>
+          }
+        </div>
+      }
+    </bc-card>
+
+    <bc-card title="Bone Fracture Detection" subtitle="Upload X-ray image">
+      <label class="upload-zone">
+        <input type="file" accept="image/*" (change)="onFractureImage($event)" [disabled]="fractureLoading()" hidden />
+        <span>{{ fractureLoading() ? 'Analyzing...' : 'Click to upload X-ray image' }}</span>
+      </label>
+
+      @if (fractureResult()) {
+        <div class="result">
+          <h4>Fracture Analysis</h4>
+          <pre>{{ fractureResult() | json }}</pre>
+        </div>
+      }
+    </bc-card>
+  </div>
+
+  <bc-card title="Report History">
+    @if (loading()) {
+      <p>Loading reports...</p>
+    } @else if (reports().length === 0) {
+      <p class="empty">No AI reports yet.</p>
+    } @else {
+      <div class="report-list">
+        @for (report of reports(); track report._id) {
+          <div class="report-item">
+            <div>
+              <strong>{{ report.model_name }}</strong>
+              <span>{{ report.createdAt | dateFormat }}</span>
+            </div>
+            <bc-badge [label]="(report.confidence * 100).toFixed(0) + '%'" variant="primary" />
+          </div>
+        }
+      </div>
+    }
+  </bc-card>
+</div>

@@ -1,0 +1,66 @@
+<div class="appointments">
+  <div class="appointments__header">
+    <h2>Appointments</h2>
+    @if (isPatient) {
+      <bc-button (clicked)="showBooking.set(!showBooking())">
+        {{ showBooking() ? 'Cancel' : 'Book Appointment' }}
+      </bc-button>
+    }
+  </div>
+
+  @if (showBooking() && isPatient) {
+    <bc-card title="Book New Appointment">
+      <form [formGroup]="bookForm" (ngSubmit)="book()" class="book-form">
+        <div class="field">
+          <label>Select Doctor</label>
+          <select formControlName="doctorId" (change)="onDoctorSelect($any($event.target).value)">
+            <option value="">Choose a doctor</option>
+            @for (doc of doctors(); track doc._id) {
+              <option [value]="getDoctorUserId(doc)">
+                {{ getDoctorName(doc) }} — {{ doc.specialty ?? 'General' }}
+              </option>
+            }
+          </select>
+        </div>
+        @if (availability().length > 0) {
+          <p class="hint">Doctor availability: @for (slot of availability(); track slot._id) {
+            <span>{{ slot.dayOfWeek }} {{ slot.startTime }}-{{ slot.endTime }}</span>
+          }</p>
+        }
+        <bc-input label="Date" type="date" formControlName="scheduledDate" />
+        <bc-input label="Start Time" type="time" formControlName="startTime" />
+        <bc-input label="End Time" type="time" formControlName="endTime" />
+        <bc-input label="Notes (optional)" formControlName="notes" />
+        <bc-button type="submit" [loading]="booking()">Confirm Booking</bc-button>
+      </form>
+    </bc-card>
+  }
+
+  <bc-card title="Your Appointments">
+    @if (loading()) {
+      <p>Loading...</p>
+    } @else if (appointments().length === 0) {
+      <p class="empty">No appointments found.</p>
+    } @else {
+      <div class="apt-table">
+        @for (apt of appointments(); track apt._id) {
+          <div class="apt-row">
+            <div class="apt-row__info">
+              <strong>{{ apt.scheduledDate | dateFormat:'long' }}</strong>
+              <span>{{ apt.startTime | dateFormat:'time' }} – {{ apt.endTime | dateFormat:'time' }}</span>
+              @if (isDoctor) {
+                <span class="muted">Patient: {{ getPatientName(apt) }}</span>
+              }
+            </div>
+            <div class="apt-row__actions">
+              <bc-badge [label]="apt.status | appointmentStatus" [variant]="apt.status | statusVariant" />
+              @if (apt.status !== 'cancelled' && apt.status !== 'completed') {
+                <bc-button variant="danger" size="sm" (clicked)="cancel(apt._id)">Cancel</bc-button>
+              }
+            </div>
+          </div>
+        }
+      </div>
+    }
+  </bc-card>
+</div>

@@ -1,0 +1,56 @@
+<div class="notifications">
+  <h2>Notifications</h2>
+
+  <div class="notifications__grid">
+    <bc-card title="Preferences">
+      @if (loading()) {
+        <p>Loading...</p>
+      } @else if (prefs()) {
+        <div class="pref-list">
+          <div class="pref-item">
+            <div>
+              <strong>Push Notifications</strong>
+              <p>Receive real-time alerts on your device</p>
+            </div>
+            <button
+              type="button"
+              class="toggle"
+              [class.toggle--on]="prefs()!.pushEnabled"
+              (click)="togglePush()"
+              [disabled]="saving()"
+              aria-label="Toggle push notifications"
+            ></button>
+          </div>
+          <div class="pref-item">
+            <div>
+              <strong>Email Notifications</strong>
+              <p>Receive updates via email</p>
+            </div>
+            <button
+              type="button"
+              class="toggle"
+              [class.toggle--on]="prefs()!.emailEnabled"
+              (click)="toggleEmail()"
+              [disabled]="saving()"
+              aria-label="Toggle email notifications"
+            ></button>
+          </div>
+        </div>
+        <bc-button variant="outline" size="sm" (clicked)="registerPush()">Register for Push</bc-button>
+      }
+    </bc-card>
+
+    <bc-card title="Connection Status">
+      <p>Socket.IO: <strong>{{ socketConnected() ? 'Connected' : 'Disconnected' }}</strong></p>
+      <p class="muted">Real-time notification inbox requires GET /notification endpoint (pending backend).</p>
+    </bc-card>
+
+    <bc-card title="Notification Center">
+      <div class="empty-inbox">
+        <span>🔔</span>
+        <p>No notifications to display.</p>
+        <p class="muted">Notifications are sent server-side via Firebase and email. Inbox API pending.</p>
+      </div>
+    </bc-card>
+  </div>
+</div>

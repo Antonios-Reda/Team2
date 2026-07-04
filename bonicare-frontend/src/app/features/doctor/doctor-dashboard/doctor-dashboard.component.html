@@ -1,0 +1,53 @@
+<div class="doctor-dashboard">
+  <div class="doctor-dashboard__header">
+    <h2>Doctor Portal</h2>
+    <p>Manage your practice and patient appointments</p>
+  </div>
+
+  @if (loading()) {
+    <bc-card><bc-skeleton /></bc-card>
+  } @else {
+    <div class="doctor-dashboard__grid">
+      <bc-card title="Your Profile" [subtitle]="profile()?.specialty ?? 'Complete your profile'">
+        @if (showProfileForm()) {
+          <form [formGroup]="profileForm" (ngSubmit)="saveProfile()" class="profile-form">
+            <bc-input label="Specialty" formControlName="specialty" />
+            <bc-input label="Bio" formControlName="bio" />
+            <bc-input label="License Number" formControlName="licenseNumber" />
+            <bc-input label="Years of Experience" type="number" formControlName="yearsOfExperience" />
+            <bc-input label="Hospital Info" formControlName="hospitalInfo" />
+            <div class="form-actions">
+              <bc-button type="submit" [loading]="saving()">Save</bc-button>
+              <bc-button variant="ghost" (clicked)="showProfileForm.set(false)">Cancel</bc-button>
+            </div>
+          </form>
+        } @else {
+          <div class="profile-summary">
+            <p><strong>Specialty:</strong> {{ profile()?.specialty ?? '—' }}</p>
+            <p><strong>Hospital:</strong> {{ profile()?.hospitalInfo ?? '—' }}</p>
+            <p><strong>Experience:</strong> {{ profile()?.yearsOfExperience ?? 0 }} years</p>
+            <bc-button variant="outline" size="sm" (clicked)="showProfileForm.set(true)">Edit Profile</bc-button>
+          </div>
+        }
+      </bc-card>
+
+      <bc-card title="Upcoming Appointments" [subtitle]="appointments().length + ' total'">
+        @if (appointments().length === 0) {
+          <p class="empty">No appointments scheduled.</p>
+        } @else {
+          <div class="apt-list">
+            @for (apt of appointments().slice(0, 8); track apt._id) {
+              <div class="apt-item">
+                <div>
+                  <strong>{{ getPatientName(apt) }}</strong>
+                  <span>{{ apt.scheduledDate | dateFormat }} · {{ apt.startTime | dateFormat:'time' }}</span>
+                </div>
+                <bc-badge [label]="apt.status | appointmentStatus" [variant]="apt.status | statusVariant" />
+              </div>
+            }
+          </div>
+        }
+      </bc-card>
+    </div>
+  }
+</div>

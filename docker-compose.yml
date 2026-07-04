@@ -1,0 +1,113 @@
+
+
+services:
+  # Node.js Medical Platform
+  node-app:
+    build: 
+      context: ./orthopedic-platform-BoniCare-
+      dockerfile: Dockerfile
+    container_name: bonicare_node_app
+    ports:
+      - "3000:3000"
+    env_file:
+      - ./orthopedic-platform-BoniCare-/.env
+    environment:
+      - NODE_ENV=development
+      - MONGO_URI=mongodb://mongo:27017/bonicare
+      - REDIS_URL=redis://redis:6379
+      - AI_SERVICE_URL=http://ai-service:8000
+    depends_on:
+      mongo:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      ai-service:
+        condition: service_started
+    volumes:
+      - ./orthopedic-platform-BoniCare-:/app
+      - /app/node_modules
+    networks:
+      - bonicare-network
+
+  # FastAPI AI Service
+  ai-service:
+    build:
+      context: ./fastAPI
+      dockerfile: Dockerfile
+    container_name: bonicare_ai_service
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./fastAPI:/app
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - bonicare-network
+
+  # MongoDB Database
+  mongo:
+    image: mongo:6
+    container_name: bonicare_mongo
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo_data:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - bonicare-network
+
+  # Redis for Socket.io and Caching
+  redis:
+    image: redis:alpine
+    container_name: bonicare_redis
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - bonicare-network
+
+  # Angular Frontend
+  frontend:
+    build:
+      context: ./bonicare-frontend
+      dockerfile: Dockerfile
+    container_name: bonicare_frontend
+    ports:
+      - "4200:4200"
+    volumes:
+      - /app/node_modules
+    depends_on:
+      - node-app
+    networks:
+      - bonicare-network
+
+  webrtc:
+    build:
+      context: ./webrtc
+      dockerfile: Dockerfile
+    container_name: webrtc
+    networks:
+      - bonicare-network
+    ports:
+      - "${WEBRTC_PORT:-5002}:${WEBRTC_PORT:-5002}"
+    environment:
+      - NODE_ENV=production
+    restart: unless-stopped
+
+networks:
+  bonicare-network:
+    driver: bridge
+
+volumes:
+  mongo_data:

@@ -1,0 +1,39 @@
+<div class="auth-form">
+  <h2>Create account</h2>
+  <p class="auth-form__subtitle">Join BoniCare as a patient or doctor</p>
+
+  @if (serverError()) {
+    <div class="auth-alert auth-alert--error" role="alert">
+      {{ serverError() }}
+    </div>
+  }
+
+  <form [formGroup]="form" (ngSubmit)="onSubmit()">
+    <bc-input label="Full name" formControlName="name" placeholder="John Doe" [error]="fieldError('name')" />
+    <bc-input label="Email" type="email" formControlName="email" placeholder="you@example.com" [error]="fieldError('email')" />
+    <bc-input label="Password" type="password" formControlName="password" placeholder="Min 6 characters" [error]="fieldError('password')" />
+    <bc-input label="Phone" formControlName="phone" placeholder="+1 555 000 0000" hint="Required for account verification" [error]="fieldError('phone')" />
+
+    <div class="role-select">
+      <label class="role-select__label">I am a</label>
+      <div class="role-select__options">
+        <label class="role-option">
+          <input type="radio" formControlName="role" value="patient" />
+          <span>Patient</span>
+        </label>
+        <label class="role-option">
+          <input type="radio" formControlName="role" value="doctor" />
+          <span>Doctor</span>
+        </label>
+      </div>
+    </div>
+
+    <bc-button type="submit" variant="primary" size="lg" [loading]="loading()">
+      Create account
+    </bc-button>
+  </form>
+
+  <p class="auth-form__footer">
+    Already have an account? <a routerLink="/auth/login">Sign in</a>
+  </p>
+</div>
