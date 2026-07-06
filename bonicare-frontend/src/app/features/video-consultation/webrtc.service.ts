@@ -20,10 +20,12 @@ export class WebRtcService implements OnDestroy {
 
   private readonly iceServers: RTCIceServer[] = [
     { urls: 'stun:stun.l.google.com:19302' },
+    { urls: 'stun:stun1.l.google.com:19302' },
   ];
 
   async startCall(appointmentId: string): Promise<void> {
     if (!this.signalingAvailable()) {
+      console.warn('[WebRTC] Signaling not available – cannot start call.');
       this.callState.set('failed');
       return;
     }
@@ -37,13 +39,18 @@ export class WebRtcService implements OnDestroy {
       this.createPeerConnection();
       stream.getTracks().forEach((track) => this.peerConnection!.addTrack(track, stream));
 
-      this.socket.emitCallEvent('call:join', { appointmentId });
+      // Register listeners BEFORE emitting join so we don't miss any events
       this.setupSignalingListeners();
 
+      // Join the appointment room on the signaling server
+      this.socket.emitCallEvent('call:join', { appointmentId });
+
+      // Create and send offer
       const offer = await this.peerConnection!.createOffer();
       await this.peerConnection!.setLocalDescription(offer);
       this.socket.emitCallEvent('call:offer', { appointmentId, sdp: offer });
-    } catch {
+    } catch (err) {
+      console.error('[WebRTC] startCall failed:', err);
       this.callState.set('failed');
     }
   }
@@ -117,17 +124,65 @@ export class WebRtcService implements OnDestroy {
       else if (state === 'disconnected') this.callState.set('reconnecting');
       else if (state === 'failed') this.callState.set('failed');
     };
+
+    this.peerConnection.oniceconnectionstatechange = () => {
+      const state = this.peerConnection?.iceConnectionState;
+      if (state === 'failed') {
+        console.warn('[WebRTC] ICE failed — attempting restart');
+        this.peerConnection?.restartIce();
+      }
+    };
   }
 
   private setupSignalingListeners(): void {
-    this.socket.onCallEvent('call:answer', async (data: unknown) => {
-      const { sdp } = data as { sdp: RTCSessionDescriptionInit };
-      await this.peerConnection?.setRemoteDescription(sdp);
+    // ── Answerer receives the offer ────────────────────────────────────────────
+    this.socket.onCallEvent('call:offer', async (data: unknown) => {
+      const { sdp, appointmentId } = data as { sdp: RTCSessionDescriptionInit; appointmentId: string };
+      if (appointmentId !== this.appointmentId) return; // not our room
+
+      // If we are the answerer (no local description yet), handle the incoming offer
+      if (!this.peerConnection) {
+        try {
+          const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+          this.localStream.set(stream);
+          this.callState.set('connecting');
+          this.createPeerConnection();
+          stream.getTracks().forEach((track) => this.peerConnection!.addTrack(track, stream));
+        } catch (err) {
+          console.error('[WebRTC] Could not get media for answer:', err);
+          this.callState.set('failed');
+          return;
+        }
+      }
+
+      await this.peerConnection!.setRemoteDescription(sdp);
+      const answer = await this.peerConnection!.createAnswer();
+      await this.peerConnection!.setLocalDescription(answer);
+      this.socket.emitCallEvent('call:answer', { appointmentId, sdp: answer });
     });
 
+    // ── Caller receives the answer ─────────────────────────────────────────────
+    this.socket.onCallEvent('call:answer', async (data: unknown) => {
+      const { sdp } = data as { sdp: RTCSessionDescriptionInit };
+      if (this.peerConnection?.signalingState === 'have-local-offer') {
+        await this.peerConnection.setRemoteDescription(sdp);
+      }
+    });
+
+    // ── ICE candidates ──────────────────────────────────────────────────────────
     this.socket.onCallEvent('call:ice-candidate', async (data: unknown) => {
       const { candidate } = data as { candidate: RTCIceCandidateInit };
-      await this.peerConnection?.addIceCandidate(candidate);
+      try {
+        await this.peerConnection?.addIceCandidate(candidate);
+      } catch (err) {
+        console.warn('[WebRTC] Failed to add ICE candidate:', err);
+      }
+    });
+
+    // ── Peer left ───────────────────────────────────────────────────────────────
+    this.socket.onCallEvent('call:peer-left', () => {
+      console.log('[WebRTC] Remote peer left the call');
+      this.callState.set('ended');
     });
   }
 
