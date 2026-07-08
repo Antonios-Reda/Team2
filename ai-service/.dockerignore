@@ -16,3 +16,8 @@ Dockerfile
 docker-compose.yml
 .vscode
 .idea
+models/__pycache__
+.pytest_cache
+.env
+tests
+.ipynb_checkpoints

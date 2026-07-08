@@ -149,3 +149,5 @@ vite.config.ts.timestamp-*
 .gemini
 /specs
 specs/
+stripe.exe
+uploads/
