@@ -1,0 +1,306 @@
+pipeline {
+
+    agent any
+
+    options {
+        timestamps()
+        ansiColor('xterm')
+        disableConcurrentBuilds()
+        buildDiscarder(logRotator(
+                numToKeepStr: '20',
+                artifactNumToKeepStr: '10'
+        ))
+    }
+
+    environment {
+
+        GIT_BRANCH = "DevOps-dev"
+
+        DOCKER_BUILDKIT = "1"
+        COMPOSE_DOCKER_CLI_BUILD = "1"
+
+        REGISTRY = "docker.io"
+        DOCKER_NAMESPACE = "keroliskhalaf"
+
+        BACKEND_IMAGE = "${DOCKER_NAMESPACE}/bonicare-backend"
+        FRONTEND_IMAGE = "${DOCKER_NAMESPACE}/bonicare-frontend"
+        AI_IMAGE = "${DOCKER_NAMESPACE}/bonicare-ai-service"
+        WEBRTC_IMAGE = "${DOCKER_NAMESPACE}/bonicare-webrtc"
+
+        COMPOSE_FILE = "compose/compose.yaml"
+        COMPOSE_DEV = "compose/compose.dev.yaml"
+    }
+
+    stages {
+
+        stage('Checkout Repository') {
+
+            steps {
+
+                cleanWs()
+
+                git branch: "${GIT_BRANCH}",
+                        url: 'https://github.com/Antonios-Reda/Team2.git'
+
+            }
+
+        }
+
+        stage('Docker Information') {
+
+            steps {
+
+                sh '''
+                    docker version
+                    docker compose version
+                    docker buildx version
+                '''
+
+            }
+
+        }
+
+        stage('Create Buildx Builder') {
+
+            steps {
+
+                sh '''
+
+                    docker buildx inspect bonicare-builder >/dev/null 2>&1 || \
+                    docker buildx create --name bonicare-builder --driver docker-container
+
+                    docker buildx use bonicare-builder
+
+                    docker buildx inspect --bootstrap
+
+                '''
+
+            }
+
+        }
+
+        stage('Docker Bake Build') {
+
+            steps {
+
+                sh '''
+
+                    docker buildx bake \
+                        --file ci/docker-bake.hcl
+
+                '''
+
+            }
+
+        }
+
+        stage('Compose Build') {
+
+            steps {
+
+                sh '''
+
+                    docker compose \
+                        -f ${COMPOSE_FILE} \
+                        -f ${COMPOSE_DEV} \
+                        build
+
+                '''
+
+            }
+
+        }
+
+        stage('Start Services') {
+
+            steps {
+
+                sh '''
+
+                    docker compose \
+                        -f ${COMPOSE_FILE} \
+                        -f ${COMPOSE_DEV} \
+                        up -d
+
+                '''
+
+            }
+
+        }
+
+        stage('Wait For Health Checks') {
+
+            steps {
+
+                sh '''
+
+                timeout=180
+
+                while [ $timeout -gt 0 ]
+                do
+
+                    unhealthy=$(docker ps --filter health=unhealthy -q)
+
+                    starting=$(docker ps --filter health=starting -q)
+
+                    if [ -z "$unhealthy" ] && [ -z "$starting" ]; then
+                        echo "All Containers Healthy"
+                        exit 0
+                    fi
+
+                    sleep 5
+                    timeout=$((timeout-5))
+
+                done
+
+                docker compose \
+                    -f ${COMPOSE_FILE} \
+                    ps
+
+                exit 1
+
+                '''
+
+            }
+
+        }
+
+        stage('Docker Login') {
+
+            steps {
+
+                withCredentials([
+
+                    usernamePassword(
+
+                        credentialsId: 'dockerhub_id',
+
+                        usernameVariable: 'DOCKER_USER',
+
+                        passwordVariable: 'DOCKER_PASS'
+
+                    )
+
+                ]) {
+
+                    sh '''
+
+                    echo "$DOCKER_PASS" | docker login \
+                        -u "$DOCKER_USER" \
+                        --password-stdin
+
+                    '''
+
+                }
+
+            }
+
+        }
+
+        stage('Tag Images') {
+
+            steps {
+
+                sh '''
+
+                SHORT_SHA=$(git rev-parse --short HEAD)
+
+                docker tag bonicare-backend:latest ${BACKEND_IMAGE}:latest
+                docker tag bonicare-backend:latest ${BACKEND_IMAGE}:${BUILD_NUMBER}
+                docker tag bonicare-backend:latest ${BACKEND_IMAGE}:${SHORT_SHA}
+
+                docker tag bonicare-frontend:latest ${FRONTEND_IMAGE}:latest
+                docker tag bonicare-frontend:latest ${FRONTEND_IMAGE}:${BUILD_NUMBER}
+                docker tag bonicare-frontend:latest ${FRONTEND_IMAGE}:${SHORT_SHA}
+
+                docker tag bonicare-ai-service:latest ${AI_IMAGE}:latest
+                docker tag bonicare-ai-service:latest ${AI_IMAGE}:${BUILD_NUMBER}
+                docker tag bonicare-ai-service:latest ${AI_IMAGE}:${SHORT_SHA}
+
+                docker tag bonicare-webrtc:latest ${WEBRTC_IMAGE}:latest
+                docker tag bonicare-webrtc:latest ${WEBRTC_IMAGE}:${BUILD_NUMBER}
+                docker tag bonicare-webrtc:latest ${WEBRTC_IMAGE}:${SHORT_SHA}
+
+                '''
+
+            }
+
+        }
+
+        stage('Push Images') {
+
+            steps {
+
+                sh '''
+
+                SHORT_SHA=$(git rev-parse --short HEAD)
+
+                docker push ${BACKEND_IMAGE}:latest
+                docker push ${BACKEND_IMAGE}:${BUILD_NUMBER}
+                docker push ${BACKEND_IMAGE}:${SHORT_SHA}
+
+                docker push ${FRONTEND_IMAGE}:latest
+                docker push ${FRONTEND_IMAGE}:${BUILD_NUMBER}
+                docker push ${FRONTEND_IMAGE}:${SHORT_SHA}
+
+                docker push ${AI_IMAGE}:latest
+                docker push ${AI_IMAGE}:${BUILD_NUMBER}
+                docker push ${AI_IMAGE}:${SHORT_SHA}
+
+                docker push ${WEBRTC_IMAGE}:latest
+                docker push ${WEBRTC_IMAGE}:${BUILD_NUMBER}
+                docker push ${WEBRTC_IMAGE}:${SHORT_SHA}
+
+                '''
+
+            }
+
+        }
+
+    }
+
+    post {
+
+        success {
+
+            echo 'CI Pipeline Finished Successfully'
+
+        }
+
+        failure {
+
+            echo 'CI Pipeline Failed'
+
+            sh '''
+
+            docker compose \
+                -f ${COMPOSE_FILE} \
+                logs
+
+            '''
+
+        }
+
+        always {
+
+            sh '''
+
+            docker compose \
+                -f ${COMPOSE_FILE} \
+                down -v
+
+            docker image prune -af || true
+
+            docker builder prune -af || true
+
+            docker logout || true
+
+            '''
+
+            cleanWs()
+
+        }
+
+    }
+
+}
