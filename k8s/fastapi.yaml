@@ -1,0 +1,33 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ai-deployment
+  namespace: bonicare
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: ai
+  template:
+    metadata:
+      labels:
+        app: ai
+    spec:
+      containers:
+      - name: ai
+        image: YOUR_FASTAPI_IMAGE:latest
+        ports:
+        - containerPort: 8000
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: ai-service
+  namespace: bonicare
+spec:
+  selector:
+    app: ai
+  ports:
+  - port: 8000
+    targetPort: 8000
+  type: ClusterIP

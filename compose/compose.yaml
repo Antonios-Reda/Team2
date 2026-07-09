@@ -1,0 +1,328 @@
+version: '3.9'
+
+# ==========================
+# BoniCare Orthopedic Platform
+# Complete Docker Compose Stack
+# ==========================
+
+services:
+  # ==========================
+  # Frontend - Angular + Nginx
+  # ==========================
+  frontend:
+    build:
+      context: ../apps/bonicare-frontend
+      dockerfile: Dockerfile
+    container_name: bonicare-frontend
+    
+    # Port mapping for HTTP
+    ports:
+      - "80:80"
+    
+    # Service restart policy (default: no restart)
+    restart: no
+    
+    # Environment variables
+    environment:
+      - NGINX_HOST=frontend
+      - NGINX_PORT=80
+    
+    # Health check
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost/health"]
+      interval: 30s
+      timeout: 10s
+      start_period: 5s
+      retries: 3
+    
+    # Network attachment
+    networks:
+      - bonicare-network
+    
+    # Dependencies - Wait for backend to be healthy
+    depends_on:
+      backend:
+        condition: service_healthy
+    
+    # Logging configuration (for dev - overridden in prod)
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # ==========================
+  # Backend - Express.js API
+  # ==========================
+  backend:
+    build:
+      context: ../apps/bonicare-backend
+      dockerfile: Dockerfile
+    container_name: bonicare-backend
+    
+    # Port mapping for API
+    ports:
+      - "3000:3000"
+    
+    # Service restart policy (default: no restart)
+    restart: no
+    
+    # Environment variables - Override .env values for Docker environment
+    environment:
+      - NODE_ENV=development
+      - PORT=3000
+      - MONGO_URI=mongodb://mongo:27017/bonicare
+      - MONGODB_TEST_URI=mongodb://mongo:27017/bonicare_test
+      - REDIS_URL=redis://redis:6379
+      - REDIS_PASSWORD=
+      - AI_SERVICE_URL=http://ai-service:8000
+      - CORS_ORIGIN=http://localhost:80,http://localhost:3000,http://localhost:3001,http://localhost:4200,http://frontend
+      # Keep other env vars from .env file
+      - JWT_SECRET=${JWT_SECRET:-super_secret_key_12345678901234567890123456789012}
+      - ENCRYPTION_KEY=${ENCRYPTION_KEY:-12345678901234567890123456789012}
+      - SESSION_SECRET=${SESSION_SECRET:-abcdefghijklmnopqrstuvwxyz1234567890abcdef}
+    
+    # Load environment variables from file
+    env_file:
+      - ../.env
+    
+    # Volume mounts for data persistence and socket connections
+    volumes:
+      # Keep uploads directory accessible
+      - ../apps/bonicare-backend/uploads:/app/uploads
+      # Socket.IO and Redis use in-memory storage, no volume needed for temp data
+    
+    # Health check
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:3000/health', (r) => {if (r.statusCode !== 200) throw new Error(r.statusCode)})"]
+      interval: 30s
+      timeout: 10s
+      start_period: 5s
+      retries: 3
+    
+    # Network attachment
+    networks:
+      - bonicare-network
+    
+    # Dependencies - Wait for MongoDB and Redis to be healthy
+    depends_on:
+      mongo:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    
+    # Logging configuration
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # ==========================
+  # AI Service - FastAPI + TensorFlow
+  # ==========================
+  ai-service:
+    build:
+      context: ../apps/ai-service
+      dockerfile: Dockerfile
+    container_name: bonicare-ai-service
+    
+    # Port mapping for API
+    ports:
+      - "8000:8000"
+    
+    # Service restart policy (default: no restart)
+    restart: no
+    
+    # Environment variables
+    environment:
+      - PYTHONUNBUFFERED=1
+      - PYTHONDONTWRITEBYTECODE=1
+    
+    # Volume mounts
+    volumes:
+      # Models directory
+      - ../apps/ai-service/models:/app/models:ro
+    
+    # Health check
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 30s
+      timeout: 10s
+      start_period: 10s
+      retries: 3
+    
+    # Network attachment
+    networks:
+      - bonicare-network
+    
+    # No dependencies - AI service is standalone
+    
+    # Logging configuration
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # ==========================
+  # WebRTC Signaling Server - Socket.IO
+  # ==========================
+  webrtc:
+    build:
+      context: ../apps/webrtc
+      dockerfile: Dockerfile
+    container_name: bonicare-webrtc
+    
+    # Port mapping for signaling server
+    ports:
+      - "5002:5002"
+    
+    # Service restart policy (default: no restart)
+    restart: no
+    
+    # Environment variables
+    environment:
+      - NODE_ENV=development
+      - WEBRTC_PORT=5002
+    
+    # Health check
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:5002/health', (r) => {if (r.statusCode !== 200) throw new Error(r.statusCode)})"]
+      interval: 30s
+      timeout: 10s
+      start_period: 5s
+      retries: 3
+    
+    # Network attachment
+    networks:
+      - bonicare-network
+    
+    # No dependencies - WebRTC server is standalone
+    
+    # Logging configuration
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # ==========================
+  # MongoDB - Database
+  # ==========================
+  mongo:
+    image: mongo:7.0
+    container_name: bonicare-mongo
+    
+    # Port mapping for database access
+    ports:
+      - "27017:27017"
+    
+    # Service restart policy (default: no restart)
+    restart: no
+    
+    # Environment variables (authentication can be added here)
+    environment:
+      # Optional: MongoDB authentication (commented out for dev)
+      # MONGO_INITDB_ROOT_USERNAME=admin
+      # MONGO_INITDB_ROOT_PASSWORD=password
+      - MONGO_INITDB_DATABASE=bonicare
+    
+    # Volume mounts for data persistence
+    volumes:
+      # Named volume for database persistence
+      - mongo_data:/data/db
+      # Optional: Volume for database backups
+      - mongo_backups:/backups
+    
+    # Health check using MongoDB ping command
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 30s
+      timeout: 10s
+      start_period: 10s
+      retries: 3
+    
+    # Network attachment
+    networks:
+      - bonicare-network
+    
+    # Logging configuration
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # ==========================
+  # Redis - Cache & Session Store
+  # ==========================
+  redis:
+    image: redis:7-alpine
+    container_name: bonicare-redis
+    
+    # Port mapping for cache access
+    ports:
+      - "6379:6379"
+    
+    # Service restart policy (default: no restart)
+    restart: no
+    
+    # Command to start Redis with persistence
+    # --appendonly yes enables AOF (Append-Only File) persistence
+    command: redis-server --appendonly yes --loglevel warning
+    
+    # Volume mounts for data persistence
+    volumes:
+      # Named volume for Redis data persistence
+      - redis_data:/data
+    
+    # Health check using Redis ping command
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 10s
+      start_period: 5s
+      retries: 3
+    
+    # Network attachment
+    networks:
+      - bonicare-network
+    
+    # Logging configuration
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+# ==========================
+# Networks
+# ==========================
+networks:
+  # Primary network for all services
+  bonicare-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.24.0.0/16
+
+# ==========================
+# Volumes
+# ==========================
+volumes:
+  # MongoDB data persistence
+  mongo_data:
+    driver: local
+  
+  # MongoDB backups
+  mongo_backups:
+    driver: local
+  
+  # Redis data persistence
+  redis_data:
+    driver: local
+  
+  # Application uploads
+  # Note: If you want to persist uploads outside containers, use bind mount instead
+  # In compose.dev.yaml and compose.prod.yaml, this can be overridden
