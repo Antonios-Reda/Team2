@@ -8,6 +8,15 @@ const io = new Server(server, { cors: { origin: '*', methods: ['GET', 'POST'] } 
 
 app.get('/', (req, res) => res.send('WebRTC signaling server'));
 
+// Health check endpoint (for container orchestration)
+app.get('/health', (req, res) => {
+  res.json({
+    status: 'healthy',
+    service: 'bonicare-webrtc',
+    timestamp: new Date().toISOString()
+  });
+});
+
 io.on('connection', socket => {
   console.log('🔹 Peer connected', socket.id);
   socket.on('call:join', data => socket.join(data.appointmentId));

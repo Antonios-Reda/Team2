@@ -38,6 +38,26 @@ def home():
     return {"status": "online", "message": "BoniCare AI Service Running 🚀"}
 
 # ---------------------------
+# Health Endpoint (for container orchestration)
+# ---------------------------
+@app.get("/health")
+def health_check():
+    models_loaded = False
+    try:
+        # Check if models exist in memory
+        if lower_back_model is not None and bone_model is not None:
+            models_loaded = True
+    except:
+        models_loaded = False
+    
+    return {
+        "status": "healthy" if models_loaded else "degraded",
+        "service": "bonicare-ai-service",
+        "models_loaded": models_loaded,
+        "timestamp": str(__import__('datetime').datetime.utcnow())
+    }
+
+# ---------------------------
 # توقع مشاكل أسفل الظهر
 # ---------------------------
 @app.post("/lower-back")

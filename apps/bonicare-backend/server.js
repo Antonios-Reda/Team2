@@ -60,6 +60,16 @@ app.use('/api/v1/ai', aiRouter);
 // Root Endpoint
 app.get('/', (req, res) => res.send('BoniCare Orthopedic Platform API running'));
 
+// --- 5.5 Health Check Endpoint (for container orchestration) ---
+app.get('/health', (req, res) => {
+  res.json({
+    status: 'healthy',
+    service: 'bonicare-backend',
+    timestamp: new Date().toISOString(),
+    uptime: process.uptime()
+  });
+});
+
 // --- 6. Global Error Handling ---
 app.use(errorHandler);
 

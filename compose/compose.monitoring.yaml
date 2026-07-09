@@ -1,0 +1,379 @@
+version: '3.9'
+
+# ==========================
+# BoniCare Monitoring Stack
+# ==========================
+# Run with: docker-compose -f compose.yaml -f compose.monitoring.yaml up
+# 
+# Services:
+# - Prometheus: Metrics collection and storage
+# - Grafana: Visualization and dashboards
+# - Loki: Log aggregation
+# - Tempo: Distributed tracing
+# - AlertManager: Alert management and routing
+# - Node Exporter: Hardware and OS metrics
+# - cAdvisor: Container metrics
+# ==========================
+
+services:
+  # ==========================
+  # Prometheus - Metrics Collection
+  # ==========================
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: bonicare-prometheus
+    
+    # Port mapping
+    ports:
+      - "9090:9090"
+    
+    # Restart policy
+    restart: unless-stopped
+    
+    # Command line arguments
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--storage.tsdb.retention.time=30d'
+      - '--web.console.libraries=/usr/share/prometheus/console_libraries'
+      - '--web.console.templates=/usr/share/prometheus/consoles'
+    
+    # Volume mounts
+    volumes:
+      # Prometheus configuration
+      - ../monitoring/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      # Alert rules
+      - ../monitoring/prometheus/alerts.yml:/etc/prometheus/alerts.yml:ro
+      # Data storage
+      - prometheus_data:/prometheus
+    
+    # Health check
+    healthcheck:
+      test: ["CMD", "wget", "--tries=1", "--spider", "http://localhost:9090/-/healthy"]
+      interval: 30s
+      timeout: 10s
+      start_period: 5s
+      retries: 3
+    
+    # Network attachment
+    networks:
+      - bonicare-network
+      - monitoring-network
+    
+    # Logging
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # ==========================
+  # Grafana - Visualization
+  # ==========================
+  grafana:
+    image: grafana/grafana:latest
+    container_name: bonicare-grafana
+    
+    # Port mapping
+    ports:
+      - "3001:3000"
+    
+    # Restart policy
+    restart: unless-stopped
+    
+    # Environment variables
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=admin123
+      - GF_USERS_ALLOW_SIGN_UP=false
+      - GF_SERVER_ROOT_URL=http://grafana:3000
+      - GF_PATHS_PROVISIONING=/etc/grafana/provisioning
+    
+    # Volume mounts
+    volumes:
+      # Grafana data persistence
+      - grafana_data:/var/lib/grafana
+      # Provisioning configurations
+      - ../monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
+      # Dashboards
+      - ../monitoring/grafana/dashboards:/var/lib/grafana/dashboards:ro
+    
+    # Health check
+    healthcheck:
+      test: ["CMD", "wget", "--tries=1", "--spider", "http://localhost:3000/api/health"]
+      interval: 30s
+      timeout: 10s
+      start_period: 10s
+      retries: 3
+    
+    # Network attachment
+    networks:
+      - bonicare-network
+      - monitoring-network
+    
+    # Dependencies
+    depends_on:
+      prometheus:
+        condition: service_healthy
+    
+    # Logging
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # ==========================
+  # Loki - Log Aggregation
+  # ==========================
+  loki:
+    image: grafana/loki:latest
+    container_name: bonicare-loki
+    
+    # Port mapping
+    ports:
+      - "3100:3100"
+    
+    # Restart policy
+    restart: unless-stopped
+    
+    # Command line arguments
+    command: -config.file=/etc/loki/local-config.yaml
+    
+    # Volume mounts
+    volumes:
+      # Loki configuration
+      - ../monitoring/loki/loki-config.yaml:/etc/loki/local-config.yaml:ro
+      # Loki data storage
+      - loki_data:/loki
+    
+    # Health check
+    healthcheck:
+      test: ["CMD", "wget", "--tries=1", "--spider", "http://localhost:3100/ready"]
+      interval: 30s
+      timeout: 10s
+      start_period: 5s
+      retries: 3
+    
+    # Network attachment
+    networks:
+      - bonicare-network
+      - monitoring-network
+    
+    # Logging
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # ==========================
+  # Tempo - Distributed Tracing
+  # ==========================
+  tempo:
+    image: grafana/tempo:latest
+    container_name: bonicare-tempo
+    
+    # Port mapping
+    ports:
+      - "3200:3200"
+      - "4317:4317"  # OTLP gRPC receiver
+      - "4318:4318"  # OTLP HTTP receiver
+    
+    # Restart policy
+    restart: unless-stopped
+    
+    # Command line arguments
+    command: -config.file=/etc/tempo/tempo-config.yaml
+    
+    # Volume mounts
+    volumes:
+      # Tempo configuration
+      - ../monitoring/tempo/tempo-config.yaml:/etc/tempo/tempo-config.yaml:ro
+      # Tempo data storage
+      - tempo_data:/var/tempo
+    
+    # Health check
+    healthcheck:
+      test: ["CMD", "wget", "--tries=1", "--spider", "http://localhost:3200/ready"]
+      interval: 30s
+      timeout: 10s
+      start_period: 5s
+      retries: 3
+    
+    # Network attachment
+    networks:
+      - bonicare-network
+      - monitoring-network
+    
+    # Logging
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # ==========================
+  # AlertManager - Alert Management
+  # ==========================
+  alertmanager:
+    image: prom/alertmanager:latest
+    container_name: bonicare-alertmanager
+    
+    # Port mapping
+    ports:
+      - "9093:9093"
+    
+    # Restart policy
+    restart: unless-stopped
+    
+    # Command line arguments
+    command:
+      - '--config.file=/etc/alertmanager/config.yml'
+      - '--storage.path=/alertmanager'
+      - '--log.level=info'
+    
+    # Volume mounts
+    volumes:
+      # AlertManager configuration
+      - ../monitoring/alertmanager/config.yml:/etc/alertmanager/config.yml:ro
+      # AlertManager data storage
+      - alertmanager_data:/alertmanager
+    
+    # Health check
+    healthcheck:
+      test: ["CMD", "wget", "--tries=1", "--spider", "http://localhost:9093/-/healthy"]
+      interval: 30s
+      timeout: 10s
+      start_period: 5s
+      retries: 3
+    
+    # Network attachment
+    networks:
+      - monitoring-network
+    
+    # Logging
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # ==========================
+  # Node Exporter - Hardware Metrics
+  # ==========================
+  node-exporter:
+    image: prom/node-exporter:latest
+    container_name: bonicare-node-exporter
+    
+    # Port mapping
+    ports:
+      - "9100:9100"
+    
+    # Restart policy
+    restart: unless-stopped
+    
+    # Command line arguments
+    command:
+      - '--path.procfs=/host/proc'
+      - '--path.rootfs=/rootfs'
+      - '--path.sysfs=/host/sys'
+      - '--collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)'
+    
+    # Volume mounts (read-only)
+    volumes:
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /:/rootfs:ro
+    
+    # Network attachment
+    networks:
+      - monitoring-network
+    
+    # Logging
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # ==========================
+  # cAdvisor - Container Metrics
+  # ==========================
+  cadvisor:
+    image: gcr.io/cadvisor/cadvisor:latest
+    container_name: bonicare-cadvisor
+    
+    # Port mapping
+    ports:
+      - "8080:8080"
+    
+    # Restart policy
+    restart: unless-stopped
+    
+    # Privileged mode for container metrics
+    privileged: true
+    
+    # Device access
+    devices:
+      - /dev/kmsg
+    
+    # Volume mounts
+    volumes:
+      - /:/rootfs:ro
+      - /var/run:/var/run:ro
+      - /sys:/sys:ro
+      - /var/lib/docker/:/var/lib/docker:ro
+      - /dev/disk/:/dev/disk:ro
+    
+    # Network attachment
+    networks:
+      - monitoring-network
+    
+    # Logging
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+# ==========================
+# Networks
+# ==========================
+networks:
+  # Bridge to BoniCare application network
+  bonicare-network:
+    name: bonicare-network
+    driver: bridge
+    external: true  # This network must exist (created by compose.yaml)
+  
+  # Separate network for monitoring stack (optional)
+  monitoring-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.21.0.0/16
+
+# ==========================
+# Volumes
+# ==========================
+volumes:
+  # Prometheus data storage
+  prometheus_data:
+    driver: local
+  
+  # Grafana data storage
+  grafana_data:
+    driver: local
+  
+  # Loki data storage
+  loki_data:
+    driver: local
+  
+  # Tempo data storage
+  tempo_data:
+    driver: local
+  
+  # AlertManager data storage
+  alertmanager_data:
+    driver: local

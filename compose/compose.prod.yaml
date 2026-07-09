@@ -1,0 +1,249 @@
+version: '3.9'
+
+# ==========================
+# Production Overrides for compose.yaml
+# ==========================
+# Run with: docker-compose -f compose.yaml -f compose.prod.yaml up
+# ==========================
+
+services:
+  # ==========================
+  # Frontend Production
+  # ==========================
+  frontend:
+    # Override: Production restart policy - restart unless manually stopped
+    restart: unless-stopped
+    
+    # Override: Resource limits
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'      # 50% of one CPU core
+          memory: 256M     # 256 MB maximum
+        reservations:
+          cpus: '0.25'     # Minimum 25% of one CPU core
+          memory: 128M     # Minimum 128 MB
+    
+    # Override: Production logging with rotation
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"    # Max log file size
+        max-file: "5"      # Keep 5 rotated files
+        labels: "service=frontend"
+    
+    # Override: Remove bind mounts, use named volumes or read-only access
+    volumes: []
+
+  # ==========================
+  # Backend Production
+  # ==========================
+  backend:
+    # Override: Production restart policy
+    restart: unless-stopped
+    
+    # Override: Resource limits
+    deploy:
+      resources:
+        limits:
+          cpus: '1'        # 1 CPU core
+          memory: 512M     # 512 MB maximum
+        reservations:
+          cpus: '0.5'      # Minimum 50% of one CPU core
+          memory: 256M     # Minimum 256 MB
+    
+    # Override: Production environment - error handling
+    environment:
+      - NODE_ENV=production
+      - LOG_LEVEL=warn
+      - SENTRY_DSN=${SENTRY_DSN:-}
+    
+    # Override: Production logging with rotation
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "5"
+        labels: "service=backend"
+    
+    # Override: Remove bind mounts
+    volumes:
+      # Keep only necessary volumes for uploads and data
+      - backend_uploads:/app/uploads
+    
+    # Override: Read-only filesystem where possible
+    read_only: true
+    
+    # Allow temp directories to be writable
+    tmpfs:
+      - /app/tmp
+      - /app/logs
+
+  # ==========================
+  # AI Service Production
+  # ==========================
+  ai-service:
+    # Override: Production restart policy
+    restart: unless-stopped
+    
+    # Override: Resource limits (ML models need more resources)
+    deploy:
+      resources:
+        limits:
+          cpus: '2'        # 2 CPU cores
+          memory: 2G       # 2 GB maximum (for TensorFlow/Keras models)
+        reservations:
+          cpus: '1'        # Minimum 1 CPU core
+          memory: 1G       # Minimum 1 GB
+    
+    # Override: Production environment
+    environment:
+      - PYTHONUNBUFFERED=1
+      - PYTHONDONTWRITEBYTECODE=1
+      - ENV=production
+    
+    # Override: Production logging
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "5"
+        labels: "service=ai-service"
+    
+    # Override: Remove bind mounts
+    volumes:
+      # Keep only models directory as read-only
+      - ./apps/ai-service/models:/app/models:ro
+    
+    # Override: Read-only filesystem
+    read_only: true
+    
+    # Allow temp directories for ML processing
+    tmpfs:
+      - /tmp
+      - /app/tmp
+
+  # ==========================
+  # WebRTC Production
+  # ==========================
+  webrtc:
+    # Override: Production restart policy
+    restart: unless-stopped
+    
+    # Override: Resource limits
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'      # 50% of one CPU core
+          memory: 256M     # 256 MB maximum
+        reservations:
+          cpus: '0.25'     # Minimum 25% of one CPU core
+          memory: 128M     # Minimum 128 MB
+    
+    # Override: Production logging
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "5"
+        labels: "service=webrtc"
+    
+    # Override: Remove bind mounts
+    volumes: []
+    
+    # Override: Read-only filesystem
+    read_only: true
+    
+    # Allow temp directories
+    tmpfs:
+      - /tmp
+
+  # ==========================
+  # MongoDB Production
+  # ==========================
+  mongo:
+    # Override: Production restart policy
+    restart: unless-stopped
+    
+    # Override: Resource limits
+    deploy:
+      resources:
+        limits:
+          cpus: '1'        # 1 CPU core
+          memory: 1G       # 1 GB maximum
+        reservations:
+          cpus: '0.5'      # Minimum 50% of one CPU core
+          memory: 512M     # Minimum 512 MB
+    
+    # Override: Production logging
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "5"
+        labels: "service=mongo"
+    
+    # Override: Production command with security options
+    command: >
+      mongod
+      --bind_ip_all
+      --wiredTigerCacheSizeGB=0.5
+      --logpath=/var/log/mongodb/mongod.log
+    
+    # Keep volumes for data persistence
+    volumes:
+      - mongo_data:/data/db
+      - mongo_backups:/backups
+
+  # ==========================
+  # Redis Production
+  # ==========================
+  redis:
+    # Override: Production restart policy
+    restart: unless-stopped
+    
+    # Override: Resource limits
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'      # 50% of one CPU core
+          memory: 512M     # 512 MB maximum
+        reservations:
+          cpus: '0.25'     # Minimum 25% of one CPU core
+          memory: 256M     # Minimum 256 MB
+    
+    # Override: Production logging
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "5"
+        labels: "service=redis"
+    
+    # Override: Production command with additional optimizations
+    command: >
+      redis-server
+      --appendonly yes
+      --loglevel warning
+      --maxmemory 512mb
+      --maxmemory-policy allkeys-lru
+      --save 900 1
+      --save 300 10
+      --save 60 10000
+    
+    # Keep volumes for data persistence
+    volumes:
+      - redis_data:/data
+
+# ==========================
+# Production Volume Definitions
+# ==========================
+volumes:
+  mongo_data:
+    driver: local
+  mongo_backups:
+    driver: local
+  redis_data:
+    driver: local
+  backend_uploads:
+    driver: local
