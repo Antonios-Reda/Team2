@@ -1,0 +1,9 @@
+---
+galaxy_info:
+  author: Team2 DevOps
+  description: Enterprise Nginx Reverse Proxy for BoniCare
+  company: BoniCare
+  license: MIT
+  min_ansible_version: "2.14"
+dependencies:
+  - role: docker

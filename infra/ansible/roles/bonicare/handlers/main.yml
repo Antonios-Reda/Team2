@@ -1,0 +1,5 @@
+---
+- name: Clean up unused Docker images and volumes
+  ansible.builtin.command:
+    cmd: docker system prune -af --volumes
+  # Note: Executed only if explicitly notified to prevent accidental data loss

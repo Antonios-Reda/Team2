@@ -1,0 +1,14 @@
+---
+galaxy_info:
+  author: Team2 DevOps
+  description: Enterprise deployment role for BoniCare using Docker Compose
+  company: BoniCare
+  license: MIT
+  min_ansible_version: "2.14"
+  platforms:
+    - name: Ubuntu
+      versions:
+        - focal
+        - jammy
+dependencies:
+  - role: docker

@@ -1,0 +1,3 @@
+---
+# Internal Paths and Execution Variables
+compose_execution_path: "{{ bonicare_deploy_dir }}/compose"

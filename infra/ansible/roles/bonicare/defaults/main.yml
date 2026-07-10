@@ -1,0 +1,13 @@
+---
+# Git Repository Configuration
+bonicare_repo_url: "https://github.com/Team2/bonicare.git"
+bonicare_repo_branch: "DevOps-dev"
+
+# Deployment Paths
+bonicare_deploy_dir: "{{ base_deploy_dir }}"
+bonicare_env_file: "{{ bonicare_deploy_dir }}/.env"
+bonicare_compose_file: "compose.{{ environment_tier }}.yaml"
+
+# Health Check Parameters
+health_check_retries: 12
+health_check_delay: 10

@@ -1,0 +1,46 @@
+server {
+    listen 80;
+    server_name {{ nginx_server_name }};
+    return 301 https://$host$request_uri;
+}
+
+server {
+    listen 443 ssl http2;
+    server_name {{ nginx_server_name }};
+
+    ssl_certificate {{ nginx_cert_path }};
+    ssl_certificate_key {{ nginx_key_path }};
+
+    # Security Headers
+    add_header X-Frame-Options "SAMEORIGIN";
+    add_header X-Content-Type-Options "nosniff";
+    add_header X-XSS-Protection "1; mode=block";
+
+    # Gzip Compression
+    gzip on;
+    gzip_types text/plain text/css application/json application/javascript text/xml;
+
+    # Frontend (Angular 19)
+    location / {
+        proxy_pass http://bonicare-frontend:80;
+    }
+
+    # Backend API
+    location /api/ {
+        proxy_pass http://bonicare-backend:{{ services.backend.container_port }}/;
+    }
+
+    # AI Service
+    location /ai/ {
+        proxy_pass http://ai-service:{{ services.ai.container_port }}/;
+    }
+
+    # WebRTC Signaling (WebSocket Support)
+    location /socket.io/ {
+        proxy_pass http://webrtc-signaling:{{ services.webrtc.container_port }};
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "Upgrade";
+        proxy_set_header Host $host;
+    }
+}

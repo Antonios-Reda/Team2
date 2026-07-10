@@ -1,0 +1,19 @@
+---
+- name: BoniCare Infrastructure Setup
+  hosts: all
+  become: true
+  tasks:
+    - name: Run security hardening
+      ansible.builtin.include_role:
+        name: security
+      tags: [security]
+
+    - name: Install and configure Docker
+      ansible.builtin.include_role:
+        name: docker
+      tags: [docker]
+
+    - name: Setup Nginx proxy
+      ansible.builtin.include_role:
+        name: nginx
+      tags: [nginx]
