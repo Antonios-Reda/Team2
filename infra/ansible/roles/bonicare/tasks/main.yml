@@ -1,0 +1,60 @@
+---
+- name: Ensure deployment base directory exists with proper ownership
+  ansible.builtin.file:
+    path: "{{ bonicare_deploy_dir }}"
+    state: directory
+    owner: "{{ deployment_user }}"
+    group: "{{ deployment_user }}"
+    mode: '0755'
+
+- name: Sync BoniCare repository (Checkout {{ bonicare_repo_branch }})
+  ansible.builtin.git:
+    repo: "{{ bonicare_repo_url }}"
+    dest: "{{ bonicare_deploy_dir }}"
+    version: "{{ bonicare_repo_branch }}"
+    update: true
+    force: true
+  become_user: "{{ deployment_user }}"
+
+- name: Generate production-ready .env file for Docker Compose
+  ansible.builtin.template:
+    src: env.j2
+    dest: "{{ compose_execution_path }}/.env"
+    owner: "{{ deployment_user }}"
+    group: "{{ deployment_user }}"
+    mode: '0600'
+
+- name: Validate Docker Compose configuration before deployment
+  ansible.builtin.command:
+    cmd: docker compose -f {{ bonicare_compose_file }} config -q
+    chdir: "{{ compose_execution_path }}"
+  changed_when: false
+
+- name: Pull latest Docker images from registry
+  ansible.builtin.command:
+    cmd: docker compose -f {{ bonicare_compose_file }} pull
+    chdir: "{{ compose_execution_path }}"
+  register: docker_pull_result
+  changed_when: "'Downloaded newer image' in docker_pull_result.stdout"
+
+- name: Converge Docker Compose state (Start/Update containers)
+  ansible.builtin.command:
+    cmd: docker compose -f {{ bonicare_compose_file }} up -d --remove-orphans
+    chdir: "{{ compose_execution_path }}"
+  register: docker_up_result
+  # Only marks as changed if Docker actually created or recreated a container
+  changed_when: "'Created' in docker_up_result.stdout or 'Recreated' in docker_up_result.stdout"
+  notify: Clean up unused Docker images and volumes
+
+- name: Verify health endpoints of deployed BoniCare microservices
+  ansible.builtin.uri:
+    url: "http://localhost:{{ item.value.container_port }}{{ item.value.health_endpoint }}"
+    return_content: true
+    status_code: 200
+  loop: "{{ services | dict2items }}"
+  # Skip frontend or any service that doesn't explicitly define a health_endpoint in group_vars
+  when: item.value.health_endpoint is defined
+  register: health_check_results
+  until: health_check_results.status == 200
+  retries: "{{ health_check_retries }}"
+  delay: "{{ health_check_delay }}"
