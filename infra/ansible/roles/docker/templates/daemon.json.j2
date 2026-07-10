@@ -1,0 +1,18 @@
+{
+  "features": {
+    "buildkit": true
+  },
+  "log-driver": "{{ docker_logging_driver | default(docker_log_driver_fallback) }}",
+  "log-opts": {
+{% if docker_logging_driver == 'loki' %}
+    "loki-url": "{{ docker_logging_loki_url }}",
+    "loki-retries": "5",
+    "loki-batch-size": "400"
+{% else %}
+    "max-size": "{{ docker_logging_max_size | default('50m') }}",
+    "max-file": "{{ docker_logging_max_file | default('3') }}"
+{% endif %}
+  },
+  "metrics-addr": "0.0.0.0:9323",
+  "experimental": true
+}
