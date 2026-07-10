@@ -1,11 +1,15 @@
 pipeline {
+
     agent any
-    
+
     options {
         timestamps()
         ansiColor('xterm')
         disableConcurrentBuilds()
-        buildDiscarder(logRotator(numToKeepStr: '20', artifactNumToKeepStr: '10'))
+        buildDiscarder(logRotator(
+            numToKeepStr: '20',
+            artifactNumToKeepStr: '10'
+        ))
     }
 
     environment {
@@ -19,33 +23,38 @@ pipeline {
     }
 
     stages {
+
         stage('Checkout Repository') {
             steps {
                 cleanWs()
 
+                git(
+                    branch: 'main',
+                    url: 'https://github.com/Antonios-Reda/Team2.git'
+                )
+
                 script {
-
-                    def branch = env.BRANCH_NAME ?: "DevOps-dev"
-
-                    if (!(branch in ["DevOps-dev", "main"])) {
-                        error("Branch ${branch} is not allowed.")
-                    }
-
-                    git(
-                        branch: branch,
-                        url: 'https://github.com/Antonios-Reda/Team2.git'
-                    )
-
                     env.GIT_SHA = sh(
-                        script: "git rev-parse --short HEAD",
+                        script: 'git rev-parse --short HEAD',
                         returnStdout: true
                     ).trim()
-
-                    echo "Building Branch: ${branch}"
-                    echo "Commit: ${env.GIT_SHA}"
                 }
+
+                echo "Building Branch: main"
+                echo "Commit: ${env.GIT_SHA}"
             }
         }
+
+        stage('Docker Information') {
+            steps {
+                sh '''
+                    docker version
+                    docker buildx version
+                    docker info
+                '''
+            }
+        }
+
         stage('Docker Login') {
             steps {
                 withCredentials([
@@ -57,9 +66,9 @@ pipeline {
                 ]) {
 
                     sh '''
-                    echo "$DOCKER_PASS" | docker login \
-                        -u "$DOCKER_USER" \
-                        --password-stdin
+                        echo "$DOCKER_PASS" | docker login \
+                            -u "$DOCKER_USER" \
+                            --password-stdin
                     '''
 
                 }
@@ -67,84 +76,71 @@ pipeline {
         }
 
         stage('Create Buildx Builder') {
-
             steps {
 
                 sh '''
+                    docker buildx inspect bonicare-builder >/dev/null 2>&1 || \
+                    docker buildx create \
+                        --name bonicare-builder \
+                        --driver docker-container
 
-                docker buildx inspect bonicare-builder >/dev/null 2>&1 || \
-                docker buildx create --name bonicare-builder --driver docker-container
+                    docker buildx use bonicare-builder
 
-                docker buildx use bonicare-builder
-
-                docker buildx inspect --bootstrap
-
+                    docker buildx inspect --bootstrap
                 '''
 
             }
-
         }
 
         stage('Build & Push Images') {
-
             steps {
 
-                sh '''
-
-                docker buildx bake \
-                    --push \
-                    --file ci/docker-bake.hcl \
-                    --set VERSION='${IMAGE_TAG}' \
-                    --set REGISTRY='${REGISTRY}' \
-                    --set NAMESPACE='${NAMESPACE}'
-
-                '''
+                sh """
+                    docker buildx bake \
+                        --push \
+                        --file ci/docker-bake.hcl \
+                        --set VERSION=${IMAGE_TAG} \
+                        --set REGISTRY=${REGISTRY} \
+                        --set NAMESPACE=${NAMESPACE}
+                """
 
             }
-
         }
 
         stage('Deploy to Production') {
-
             steps {
 
-                sh '''
-
-                ansible-playbook \
-                    -i infra/ansible/inventory/prod.ini \
-                    infra/ansible/deploy.yml \
-                    -e image_tag=${IMAGE_TAG} \
-                    --vault-password-file=.vault_pass
-
-                '''
+                sh """
+                    ansible-playbook \
+                        -i infra/ansible/inventory/prod.ini \
+                        infra/ansible/deploy.yml \
+                        -e image_tag=${IMAGE_TAG} \
+                        --vault-password-file=.vault_pass
+                """
 
             }
-
         }
+
     }
 
     post {
 
         success {
-
             echo 'Pipeline Finished Successfully'
-
         }
 
         failure {
 
-            echo 'Deployment failed!'
+            echo 'Deployment Failed'
 
             script {
 
                 if (fileExists('infra/ansible/rollback_logic.yml')) {
 
                     sh '''
-
-                    ansible-playbook \
-                        -i infra/ansible/inventory/prod.ini \
-                        infra/ansible/rollback_logic.yml || true
-
+                        ansible-playbook \
+                            -i infra/ansible/inventory/prod.ini \
+                            infra/ansible/rollback_logic.yml || true
                     '''
 
                 }
@@ -155,15 +151,12 @@ pipeline {
 
         always {
 
-            script {
+            sh 'docker logout || true'
 
-                sh 'docker logout || true'
-
-                cleanWs()
-
-            }
+            cleanWs()
 
         }
 
     }
+
 }
