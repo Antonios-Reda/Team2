@@ -1,0 +1,32 @@
+---
+# Environment Definition and Domains
+environment_tier: dev
+app_domain: dev.bonicare.internal
+cors_origins: "https://dev.bonicare.internal,http://localhost:4200"
+
+# Development Database Connection Strings
+mongodb_uri: "mongodb://{{ db_host }}:{{ db_port }}/bonicare_dev"
+redis_url: "redis://{{ redis_host }}:{{ redis_port }}/0"
+
+# Minimal Replicas for Development Environment
+replicas:
+  backend: 1
+  frontend: 1
+  ai: 1
+  webrtc: 1
+
+# Development Resource Constraints
+resources:
+  ai_service:
+    cpus: "1.0"
+    memory: "2G"
+  backend:
+    cpus: "0.5"
+    memory: "1G"
+  webrtc:
+    cpus: "0.5"
+    memory: "512M"
+
+# Application Logging and Feature Flags
+log_level: debug
+enable_ai_telemetry: false
