@@ -276,7 +276,6 @@ pipeline {
 
             docker image prune -af || true
 
-            docker builder prune -af || true
 
             docker logout || true
 
