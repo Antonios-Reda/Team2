@@ -1,0 +1,14 @@
+version: '3.8'
+services:
+  backend:
+    image: ${REGISTRY}/${NAMESPACE}/bonicare-backend:${IMAGE_TAG}
+    restart: always
+    environment:
+      - NODE_ENV=production
+    networks:
+      - bonicare_net
+  
+  # ... بقية الخدمات ...
+networks:
+  bonicare_net:
+    driver: bridge

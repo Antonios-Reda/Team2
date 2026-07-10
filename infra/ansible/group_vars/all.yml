@@ -1,39 +1,24 @@
 ---
-# Global Project Configuration
-project_name: bonicare
-deployment_user: deploy
-base_deploy_dir: /opt/{{ project_name }}
+# Global Environment Configuration
+environment_tier: production
+base_deploy_dir: "/opt/bonicare"
+app_domain: "bonicare.app"
 
-# Docker Registry Configuration (Utilized by Jenkins deployment pipelines)
-docker_registry: docker.io
-docker_namespace: team2
-docker_network_name: bonicare_net
-
-# Database and Caching Internal Container Networking
-db_host: mongodb
-db_port: 27017
-redis_host: redis
-redis_port: 6379
-
-# Microservices Definitions and Container Ports
+# Service Specifications (Shared by Docker Compose & K8s)
 services:
   backend:
-    name: bonicare-backend
     container_port: 3000
-    health_endpoint: /health
+    health_endpoint: "/health"
   frontend:
-    name: bonicare-frontend
     container_port: 80
+    health_endpoint: "/"
   ai:
-    name: ai-service
     container_port: 8000
-    health_endpoint: /health
+    health_endpoint: "/status"
   webrtc:
-    name: webrtc-signaling
-    container_port: 3001
-    health_endpoint: /health
+    container_port: 5000
+    health_endpoint: "/socket.io"
 
-# Standardized Container Logging Constraints
-docker_logging_driver: json-file
-docker_logging_max_size: 50m
-docker_logging_max_file: 3
+# Global Security
+deployment_user: deploy
+ssh_port: 2222 # Hardened SSH Port

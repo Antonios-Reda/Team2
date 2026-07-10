@@ -21,24 +21,24 @@ target "_common" {
 
 target "backend" {
     inherits = ["_common"]
-    context = "./apps/bonicare-backend"
+    context = "../apps/bonicare-backend"
     dockerfile = "Dockerfile"
 }
 
 target "frontend" {
     inherits = ["_common"]
-    context = "./apps/bonicare-frontend"
+    context = "../apps/bonicare-frontend"
     dockerfile = "Dockerfile"
 }
 
 target "ai-service" {
     inherits = ["_common"]
-    context = "./apps/ai-service"
+    context = "../apps/ai-service"
     dockerfile = "Dockerfile"
 }
 
 target "webrtc" {
     inherits = ["_common"]
-    context = "./apps/webrtc"
+    context = "../apps/webrtc"
     dockerfile = "Dockerfile"
 }
