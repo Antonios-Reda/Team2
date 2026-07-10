@@ -3,7 +3,7 @@ variable "REGISTRY" {
 }
 
 variable "NAMESPACE" {
-  default = "keroliskhalaf"
+  default = "keroliskhalaf1"
 }
 
 variable "VERSION" {

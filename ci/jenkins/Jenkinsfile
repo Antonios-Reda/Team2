@@ -17,7 +17,7 @@ pipeline {
         COMPOSE_DOCKER_CLI_BUILD = "1"
 
         REGISTRY = "docker.io"
-        NAMESPACE = "keroliskhalaf"
+        NAMESPACE = "keroliskhalaf1"
 
         IMAGE_TAG = "${BUILD_NUMBER}"
     }
