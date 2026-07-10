@@ -9,63 +9,161 @@ pipeline {
     }
 
     environment {
-        // نستخدم BUILD_NUMBER لضمان عدم الكتابة فوق الصور (Immutable Tags)
-        IMAGE_TAG = "${BUILD_NUMBER}"
-        GIT_SHA = sh(script: 'git rev-parse --short HEAD', returnStdout: true).trim()
+        DOCKER_BUILDKIT = "1"
+        COMPOSE_DOCKER_CLI_BUILD = "1"
+
         REGISTRY = "docker.io"
         NAMESPACE = "keroliskhalaf"
+
+        IMAGE_TAG = "${BUILD_NUMBER}"
     }
 
     stages {
-        stage('Checkout') {
+        stage('Checkout Repository') {
             steps {
                 cleanWs()
-                git branch: "DevOps-dev", url: 'https://github.com/Antonios-Reda/Team2.git'
+
+                script {
+
+                    def branch = env.BRANCH_NAME ?: "DevOps-dev"
+
+                    if (!(branch in ["DevOps-dev", "main"])) {
+                        error("Branch ${branch} is not allowed.")
+                    }
+
+                    git(
+                        branch: branch,
+                        url: 'https://github.com/Antonios-Reda/Team2.git'
+                    )
+
+                    env.GIT_SHA = sh(
+                        script: "git rev-parse --short HEAD",
+                        returnStdout: true
+                    ).trim()
+
+                    echo "Building Branch: ${branch}"
+                    echo "Commit: ${env.GIT_SHA}"
+                }
             }
         }
-
         stage('Docker Login') {
             steps {
-                withCredentials([usernamePassword(credentialsId: 'dockerhub_id', usernameVariable: 'D', passwordVariable: 'P')]) {
-                    sh 'echo "$P" | docker login -u "$D" --password-stdin'
+                withCredentials([
+                    usernamePassword(
+                        credentialsId: 'dockerhub_id',
+                        usernameVariable: 'DOCKER_USER',
+                        passwordVariable: 'DOCKER_PASS'
+                    )
+                ]) {
+
+                    sh '''
+                    echo "$DOCKER_PASS" | docker login \
+                        -u "$DOCKER_USER" \
+                        --password-stdin
+                    '''
+
                 }
             }
         }
 
-        stage('Build & Push with Bake') {
+        stage('Create Buildx Builder') {
+
             steps {
-                // نمرر المتغيرات مباشرة للـ Bake للحفاظ على الـ Tags الموحدة
-                sh """
-                    docker buildx bake \
-                    --push \
-                    -f ci/docker-bake.hcl \
-                    --set "*.args.VERSION=${IMAGE_TAG}" \
-                    --set "*.tags=${REGISTRY}/${NAMESPACE}/bonicare-\$TARGET:${IMAGE_TAG}" \
-                    --set "*.tags=${REGISTRY}/${NAMESPACE}/bonicare-\$TARGET:latest"
-                """
+
+                sh '''
+
+                docker buildx inspect bonicare-builder >/dev/null 2>&1 || \
+                docker buildx create --name bonicare-builder --driver docker-container
+
+                docker buildx use bonicare-builder
+
+                docker buildx inspect --bootstrap
+
+                '''
+
             }
+
+        }
+
+        stage('Build & Push Images') {
+
+            steps {
+
+                sh '''
+
+                docker buildx bake \
+                    --push \
+                    --file ci/docker-bake.hcl \
+                    --set VERSION='${IMAGE_TAG}' \
+                    --set REGISTRY='${REGISTRY}' \
+                    --set NAMESPACE='${NAMESPACE}'
+
+                '''
+
+            }
+
         }
 
         stage('Deploy to Production') {
+
             steps {
-                // استدعاء Ansible للنشر مع تمرير الـ Tag الجديد لضمان الـ Rolling Update
-                sh """
-                    ansible-playbook -i infra/ansible/inventory/prod.ini infra/ansible/deploy.yml \
-                    -e "image_tag=${IMAGE_TAG}" \
+
+                sh '''
+
+                ansible-playbook \
+                    -i infra/ansible/inventory/prod.ini \
+                    infra/ansible/deploy.yml \
+                    -e image_tag=${IMAGE_TAG} \
                     --vault-password-file=.vault_pass
-                """
+
+                '''
+
             }
+
         }
     }
 
     post {
+
+        success {
+
+            echo 'Pipeline Finished Successfully'
+
+        }
+
         failure {
-            echo "Deployment failed! Rolling back to last stable version..."
-            sh "ansible-playbook -i infra/ansible/inventory/prod.ini infra/ansible/rollback_logic.yml"
+
+            echo 'Deployment failed!'
+
+            script {
+
+                if (fileExists('infra/ansible/rollback_logic.yml')) {
+
+                    sh '''
+
+                    ansible-playbook \
+                        -i infra/ansible/inventory/prod.ini \
+                        infra/ansible/rollback_logic.yml || true
+
+                    '''
+
+                }
+
+            }
+
         }
+
         always {
-            sh 'docker logout || true'
-            cleanWs()
+
+            script {
+
+                sh 'docker logout || true'
+
+                cleanWs()
+
+            }
+
         }
+
     }
 }
