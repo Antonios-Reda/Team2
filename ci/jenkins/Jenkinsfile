@@ -1,289 +1,71 @@
 pipeline {
-
     agent any
-
+    
     options {
         timestamps()
         ansiColor('xterm')
         disableConcurrentBuilds()
-        buildDiscarder(logRotator(
-                numToKeepStr: '20',
-                artifactNumToKeepStr: '10'
-        ))
+        buildDiscarder(logRotator(numToKeepStr: '20', artifactNumToKeepStr: '10'))
     }
 
     environment {
-
-        GIT_BRANCH = "DevOps-dev"
-
-        DOCKER_BUILDKIT = "1"
-        COMPOSE_DOCKER_CLI_BUILD = "1"
-
+        // نستخدم BUILD_NUMBER لضمان عدم الكتابة فوق الصور (Immutable Tags)
+        IMAGE_TAG = "${BUILD_NUMBER}"
+        GIT_SHA = sh(script: 'git rev-parse --short HEAD', returnStdout: true).trim()
         REGISTRY = "docker.io"
-        DOCKER_NAMESPACE = "keroliskhalaf"
-
-        BACKEND_IMAGE = "${DOCKER_NAMESPACE}/bonicare-backend"
-        FRONTEND_IMAGE = "${DOCKER_NAMESPACE}/bonicare-frontend"
-        AI_IMAGE = "${DOCKER_NAMESPACE}/bonicare-ai-service"
-        WEBRTC_IMAGE = "${DOCKER_NAMESPACE}/bonicare-webrtc"
-
-        COMPOSE_FILE = "compose/compose.yaml"
-        COMPOSE_DEV = "compose/compose.dev.yaml"
+        NAMESPACE = "keroliskhalaf"
     }
 
     stages {
-
-        stage('Checkout Repository') {
-
+        stage('Checkout') {
             steps {
-
                 cleanWs()
-
-                git branch: "${GIT_BRANCH}",
-                        url: 'https://github.com/Antonios-Reda/Team2.git'
-
+                git branch: "DevOps-dev", url: 'https://github.com/Antonios-Reda/Team2.git'
             }
-
-        }
-
-        stage('Docker Information') {
-
-            steps {
-
-                sh '''
-                    docker version
-                    docker compose version
-                    docker buildx version
-                '''
-
-            }
-
         }
 
         stage('Docker Login') {
-
             steps {
-
-                withCredentials([
-
-                    usernamePassword(
-
-                        credentialsId: 'dockerhub_id',
-
-                        usernameVariable: 'DOCKER_USER',
-
-                        passwordVariable: 'DOCKER_PASS'
-
-                    )
-
-                ]) {
-
-                    sh '''
-
-                    echo "$DOCKER_PASS" | docker login \
-                        -u "$DOCKER_USER" \
-                        --password-stdin
-
-                    '''
-
+                withCredentials([usernamePassword(credentialsId: 'dockerhub_id', usernameVariable: 'D', passwordVariable: 'P')]) {
+                    sh 'echo "$P" | docker login -u "$D" --password-stdin'
                 }
-
             }
-
         }
 
-        stage('Create Buildx Builder') {
-
+        stage('Build & Push with Bake') {
             steps {
-
-                sh '''
-
-                    docker buildx inspect bonicare-builder >/dev/null 2>&1 || \
-                    docker buildx create --name bonicare-builder --driver docker-container
-
-                    docker buildx use bonicare-builder
-
-                    docker buildx inspect --bootstrap
-
-                '''
-
-            }
-
-        }
-
-        stage('Docker Bake Build') {
-
-            steps {
-
-                sh '''
-
+                // نمرر المتغيرات مباشرة للـ Bake للحفاظ على الـ Tags الموحدة
+                sh """
                     docker buildx bake \
-                        --load \
-                        --set *.max-parallelism=1 \
-                        --file ci/docker-bake.hcl
-
-                '''
-
+                    --push \
+                    -f ci/docker-bake.hcl \
+                    --set "*.args.VERSION=${IMAGE_TAG}" \
+                    --set "*.tags=${REGISTRY}/${NAMESPACE}/bonicare-\$TARGET:${IMAGE_TAG}" \
+                    --set "*.tags=${REGISTRY}/${NAMESPACE}/bonicare-\$TARGET:latest"
+                """
             }
-
         }
 
-        stage('Start Services') {
-
+        stage('Deploy to Production') {
             steps {
-
-                sh '''
-
-                    docker compose \
-                        -f ${COMPOSE_FILE} \
-                        -f ${COMPOSE_DEV} \
-                        up -d
-
-                '''
-
+                // استدعاء Ansible للنشر مع تمرير الـ Tag الجديد لضمان الـ Rolling Update
+                sh """
+                    ansible-playbook -i infra/ansible/inventory/prod.ini infra/ansible/deploy.yml \
+                    -e "image_tag=${IMAGE_TAG}" \
+                    --vault-password-file=.vault_pass
+                """
             }
-
         }
-
-        stage('Wait For Health Checks') {
-
-            steps {
-
-                sh '''
-
-                timeout=180
-
-                while [ $timeout -gt 0 ]
-                do
-
-                    unhealthy=$(docker ps --filter health=unhealthy -q)
-
-                    starting=$(docker ps --filter health=starting -q)
-
-                    if [ -z "$unhealthy" ] && [ -z "$starting" ]; then
-                        echo "All Containers Healthy"
-                        exit 0
-                    fi
-
-                    sleep 5
-                    timeout=$((timeout-5))
-
-                done
-
-                docker compose \
-                    -f ${COMPOSE_FILE} \
-                    ps
-
-                exit 1
-
-                '''
-
-            }
-
-        }
-
-        stage('Tag Images') {
-
-            steps {
-
-                sh '''
-
-                SHORT_SHA=$(git rev-parse --short HEAD)
-
-                docker tag bonicare-backend:latest ${BACKEND_IMAGE}:latest
-                docker tag bonicare-backend:latest ${BACKEND_IMAGE}:${BUILD_NUMBER}
-                docker tag bonicare-backend:latest ${BACKEND_IMAGE}:${SHORT_SHA}
-
-                docker tag bonicare-frontend:latest ${FRONTEND_IMAGE}:latest
-                docker tag bonicare-frontend:latest ${FRONTEND_IMAGE}:${BUILD_NUMBER}
-                docker tag bonicare-frontend:latest ${FRONTEND_IMAGE}:${SHORT_SHA}
-
-                docker tag bonicare-ai-service:latest ${AI_IMAGE}:latest
-                docker tag bonicare-ai-service:latest ${AI_IMAGE}:${BUILD_NUMBER}
-                docker tag bonicare-ai-service:latest ${AI_IMAGE}:${SHORT_SHA}
-
-                docker tag bonicare-webrtc:latest ${WEBRTC_IMAGE}:latest
-                docker tag bonicare-webrtc:latest ${WEBRTC_IMAGE}:${BUILD_NUMBER}
-                docker tag bonicare-webrtc:latest ${WEBRTC_IMAGE}:${SHORT_SHA}
-
-                '''
-
-            }
-
-        }
-
-        stage('Push Images') {
-
-            steps {
-
-                sh '''
-
-                SHORT_SHA=$(git rev-parse --short HEAD)
-
-                docker push ${BACKEND_IMAGE}:latest
-                docker push ${BACKEND_IMAGE}:${BUILD_NUMBER}
-                docker push ${BACKEND_IMAGE}:${SHORT_SHA}
-
-                docker push ${FRONTEND_IMAGE}:latest
-                docker push ${FRONTEND_IMAGE}:${BUILD_NUMBER}
-                docker push ${FRONTEND_IMAGE}:${SHORT_SHA}
-
-                docker push ${AI_IMAGE}:latest
-                docker push ${AI_IMAGE}:${BUILD_NUMBER}
-                docker push ${AI_IMAGE}:${SHORT_SHA}
-
-                docker push ${WEBRTC_IMAGE}:latest
-                docker push ${WEBRTC_IMAGE}:${BUILD_NUMBER}
-                docker push ${WEBRTC_IMAGE}:${SHORT_SHA}
-
-                '''
-
-            }
-
-        }
-
     }
 
     post {
-
-        success {
-
-            echo 'CI Pipeline Finished Successfully'
-
-        }
-
         failure {
-
-            echo 'CI Pipeline Failed'
-
-            sh '''
-
-            docker compose \
-                -f ${COMPOSE_FILE} \
-                logs
-
-            '''
-
+            echo "Deployment failed! Rolling back to last stable version..."
+            sh "ansible-playbook -i infra/ansible/inventory/prod.ini infra/ansible/rollback_logic.yml"
         }
-
         always {
-
-            sh '''
-
-            docker compose \
-                -f ${COMPOSE_FILE} \
-                down -v
-
-
-
-            docker logout || true
-
-            '''
-
+            sh 'docker logout || true'
             cleanWs()
-
         }
-
     }
-
 }
