@@ -1,0 +1,16 @@
+---
+- name: BoniCare Application Deployment
+  hosts: bonicare_nodes
+  become: true
+  serial: 1  # Ensures Rolling Update behavior
+  tasks:
+    - name: Deploy application
+      ansible.builtin.include_role:
+        name: bonicare
+      tags: [deploy]
+
+    - name: Ensure monitoring stack is running
+      ansible.builtin.include_role:
+        name: monitoring
+      tags: [monitoring]
+      when: "'monitoring' in group_names"

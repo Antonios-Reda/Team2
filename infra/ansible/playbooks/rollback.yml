@@ -1,0 +1,16 @@
+---
+- name: BoniCare Rollback Procedure
+  hosts: bonicare_nodes
+  become: true
+  vars:
+    # Set this variable during execution: -e "target_branch=stable"
+    bonicare_repo_branch: "{{ target_branch | default('main') }}"
+  tasks:
+    - name: Rollback application to stable branch
+      ansible.builtin.include_role:
+        name: bonicare
+      tags: [rollback]
+
+    - name: Notify team via Slack or log
+      ansible.builtin.debug:
+        msg: "Rollback to {{ bonicare_repo_branch }} completed successfully."

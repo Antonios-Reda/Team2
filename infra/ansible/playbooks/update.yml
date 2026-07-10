@@ -1,0 +1,16 @@
+---
+- name: BoniCare System and App Update
+  hosts: all
+  become: true
+  serial: 25% # Update 25% of the fleet at a time
+  tasks:
+    - name: Update apt packages
+      ansible.builtin.apt:
+        update_cache: true
+        upgrade: dist
+      tags: [system]
+
+    - name: Pull and redeploy application
+      ansible.builtin.include_role:
+        name: bonicare
+      tags: [app]
