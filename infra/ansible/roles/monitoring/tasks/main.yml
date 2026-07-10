@@ -1,0 +1,69 @@
+---
+- name: Ensure base monitoring directories exist
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    mode: '0755'
+  loop:
+    - "{{ monitoring_base_dir }}"
+    - "{{ monitoring_config_dir }}"
+    - "{{ monitoring_config_dir }}/grafana"
+    - "{{ monitoring_data_dir }}"
+
+- name: Ensure persistent data directories exist with specific container UID mappings
+  ansible.builtin.file:
+    path: "{{ monitoring_data_dir }}/{{ item.dir }}"
+    state: directory
+    owner: "{{ item.uid }}"
+    group: "{{ item.uid }}"
+    mode: '0755'
+  loop:
+    - { dir: 'prometheus', uid: '{{ prometheus_uid }}' }
+    - { dir: 'grafana', uid: '{{ grafana_uid }}' }
+    - { dir: 'loki', uid: '{{ loki_uid }}' }
+    - { dir: 'tempo', uid: '10001' }
+    - { dir: 'alertmanager', uid: '{{ prometheus_uid }}' }
+
+- name: Deploy Prometheus configuration
+  ansible.builtin.template:
+    src: prometheus.yml.j2
+    dest: "{{ monitoring_config_dir }}/prometheus.yml"
+    mode: '0644'
+  notify: Restart Monitoring Stack
+
+- name: Deploy Grafana datasource provisioning
+  ansible.builtin.template:
+    src: datasources.yml.j2
+    dest: "{{ monitoring_config_dir }}/grafana/datasources.yml"
+    mode: '0644'
+  notify: Restart Monitoring Stack
+
+- name: Deploy Observability Docker Compose stack
+  ansible.builtin.template:
+    src: docker-compose.yml.j2
+    dest: "{{ monitoring_compose_file }}"
+    mode: '0644'
+
+- name: Pull monitoring stack images
+  ansible.builtin.command:
+    cmd: docker compose pull
+    chdir: "{{ monitoring_base_dir }}"
+  register: compose_pull
+  changed_when: "'Downloaded newer image' in compose_pull.stdout"
+
+- name: Start enterprise monitoring stack
+  ansible.builtin.command:
+    cmd: docker compose up -d --remove-orphans
+    chdir: "{{ monitoring_base_dir }}"
+  register: compose_up
+  changed_when: "'Created' in compose_up.stdout or 'Recreated' in compose_up.stdout"
+
+- name: Verify Prometheus health endpoint
+  ansible.builtin.uri:
+    url: "http://localhost:9090/-/healthy"
+    return_content: true
+    status_code: 200
+  register: prom_health
+  until: prom_health.status == 200
+  retries: 10
+  delay: 10

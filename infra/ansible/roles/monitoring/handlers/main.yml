@@ -1,0 +1,5 @@
+---
+- name: Restart Monitoring Stack
+  ansible.builtin.command:
+    cmd: docker compose restart
+    chdir: "{{ monitoring_base_dir }}"
