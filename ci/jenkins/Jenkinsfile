@@ -119,6 +119,7 @@ pipeline {
 
                     docker buildx bake \
                         --load \
+                        --set *.max-parallelism=1 \
                         --file ci/docker-bake.hcl
 
                 '''
