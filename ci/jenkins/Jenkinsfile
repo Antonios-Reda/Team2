@@ -60,6 +60,38 @@ pipeline {
 
         }
 
+        stage('Docker Login') {
+
+            steps {
+
+                withCredentials([
+
+                    usernamePassword(
+
+                        credentialsId: 'dockerhub_id',
+
+                        usernameVariable: 'DOCKER_USER',
+
+                        passwordVariable: 'DOCKER_PASS'
+
+                    )
+
+                ]) {
+
+                    sh '''
+
+                    echo "$DOCKER_PASS" | docker login \
+                        -u "$DOCKER_USER" \
+                        --password-stdin
+
+                    '''
+
+                }
+
+            }
+
+        }
+
         stage('Create Buildx Builder') {
 
             steps {
@@ -144,38 +176,6 @@ pipeline {
                 exit 1
 
                 '''
-
-            }
-
-        }
-
-        stage('Docker Login') {
-
-            steps {
-
-                withCredentials([
-
-                    usernamePassword(
-
-                        credentialsId: 'dockerhub_id',
-
-                        usernameVariable: 'DOCKER_USER',
-
-                        passwordVariable: 'DOCKER_PASS'
-
-                    )
-
-                ]) {
-
-                    sh '''
-
-                    echo "$DOCKER_PASS" | docker login \
-                        -u "$DOCKER_USER" \
-                        --password-stdin
-
-                    '''
-
-                }
 
             }
 
