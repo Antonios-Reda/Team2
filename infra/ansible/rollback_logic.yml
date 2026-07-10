@@ -1,0 +1,31 @@
+---
+- name: Enterprise Rollback Procedure
+  hosts: bonicare_nodes
+  become: true
+  tasks:
+    - name: Revert to previous stable image tag
+      ansible.builtin.template:
+        src: roles/bonicare/templates/env.j2
+        dest: "{{ bonicare_deploy_dir }}/.env"
+        vars:
+          image_tag: "{{ previous_image_tag }}"
+      
+    - name: Restart services with stable configuration
+      ansible.builtin.command:
+        cmd: docker compose -f {{ bonicare_compose_file }} up -d
+        chdir: "{{ compose_execution_path }}"
+
+    - name: Verify stable state health
+      ansible.builtin.uri:
+        url: "http://localhost:{{ item.value.container_port }}{{ item.value.health_endpoint }}"
+        status_code: 200
+      loop: "{{ services | dict2items }}"
+      when: item.value.health_endpoint is defined
+      register: health_check
+      until: health_check.status == 200
+      retries: 5
+      delay: 5
+
+    - name: Alert status of rollback
+      ansible.builtin.debug:
+        msg: "Rollback to {{ previous_image_tag }} confirmed healthy."
