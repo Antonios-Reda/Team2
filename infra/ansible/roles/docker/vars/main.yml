@@ -1,0 +1,8 @@
+---
+# Official Docker repository and GPG key configurations for Debian/Ubuntu systems
+docker_gpg_url: "https://download.docker.com/linux/ubuntu/gpg"
+docker_gpg_keyring_path: "/etc/apt/keyrings/docker.gpg"
+docker_apt_repository: "deb [arch={{ docker_apt_arch }} signed-by={{ docker_gpg_keyring_path }}] https://download.docker.com/linux/ubuntu {{ ansible_distribution_release }} stable"
+
+# Dynamic architecture mapping (Ansible to dpkg standard)
+docker_apt_arch: "{{ 'amd64' if ansible_architecture == 'x86_64' else 'arm64' if ansible_architecture == 'aarch64' else ansible_architecture }}"

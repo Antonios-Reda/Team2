@@ -32,12 +32,18 @@ group "default" {
 ###############################################################################
 
 target "_common" {
+    cache-from = [
+        "type=local,src=/tmp/.buildx-cache"
+    ]
+
+    cache-to = [
+        "type=local,dest=/tmp/.buildx-cache,mode=max"
+    ]
 
     platforms = [
         "linux/amd64"
     ]
 
-    pull = true
 
     labels = {
         project = "BoniCare"
@@ -59,6 +65,7 @@ target "backend" {
     dockerfile = "Dockerfile"
 
     tags = [
+        "bonicare-backend:latest",
         "${REGISTRY}/${NAMESPACE}/bonicare-backend:${VERSION}"
     ]
 
@@ -76,7 +83,7 @@ target "frontend" {
 
     dockerfile = "Dockerfile"
 
-    tags = [
+    tags = ["bonicare-frontend:latest",
         "${REGISTRY}/${NAMESPACE}/bonicare-frontend:${VERSION}"
     ]
 
@@ -94,7 +101,7 @@ target "ai-service" {
 
     dockerfile = "Dockerfile"
 
-    tags = [
+    tags = ["bonicare-ai-service:latest",
         "${REGISTRY}/${NAMESPACE}/bonicare-ai-service:${VERSION}"
     ]
 
@@ -112,7 +119,7 @@ target "webrtc" {
 
     dockerfile = "Dockerfile"
 
-    tags = [
+    tags = ["bonicare-webrtc:latest",
         "${REGISTRY}/${NAMESPACE}/bonicare-webrtc:${VERSION}"
     ]
 

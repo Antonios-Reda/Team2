@@ -1,0 +1,36 @@
+---
+# Production Environment Definition and Public Domains
+environment_tier: prod
+app_domain: bonicare.app
+cors_origins: "https://bonicare.app,https://www.bonicare.app"
+
+# Production Database Connection Strings (Strictly Authenticated)
+mongodb_uri: "mongodb://{{ db_host }}:{{ db_port }}/bonicare_prod?authSource=admin"
+redis_url: "redis://{{ redis_host }}:{{ redis_port }}/1"
+
+# High Availability Replica Configuration
+replicas:
+  backend: 3
+  frontend: 3
+  ai: 2
+  webrtc: 3
+
+# Production Resource Limits (Allocated for heavy ML inference and WebRTC signaling)
+resources:
+  ai_service:
+    cpus: "4.0"
+    memory: "8G"
+  backend:
+    cpus: "2.0"
+    memory: "4G"
+  webrtc:
+    cpus: "2.0"
+    memory: "2G"
+
+# Application Logging and Telemetry Flags
+log_level: info
+enable_ai_telemetry: true
+
+# Centralized Logging Override (Forwarding directly to Loki Promtail/Endpoint)
+docker_logging_driver: loki
+docker_logging_loki_url: "http://10.10.2.10:3100/loki/api/v1/push"

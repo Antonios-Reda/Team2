@@ -1,0 +1,21 @@
+---
+# System Timezone Optimization for accurate Audit Logs and JWT validations
+security_timezone: "Africa/Cairo"
+
+# Network Access Control Defaults
+security_ssh_port: 22
+security_allowed_tcp_ports:
+  - 22    # SSH
+  - 80    # HTTP (Nginx/Certbot)
+  - 443   # HTTPS (Nginx)
+
+# UDP Ports (To be overridden in group_vars for WebRTC Media Streams)
+security_allowed_udp_ports: []
+
+# SSH Hardening Defaults
+security_allowed_users: "{{ deployment_user | default('deploy') }}"
+
+# Fail2Ban Configuration
+security_fail2ban_bantime: "1h"
+security_fail2ban_findtime: "10m"
+security_fail2ban_maxretry: 5
