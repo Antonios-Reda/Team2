@@ -1,0 +1,29 @@
+---
+- name: Restart SSH
+  ansible.builtin.service:
+    name: ssh
+    state: restarted
+
+- name: Reload UFW
+  community.general.ufw:
+    state: reloaded
+
+- name: Restart Fail2Ban
+  ansible.builtin.service:
+    name: fail2ban
+    state: restarted
+
+- name: Restart Chrony
+  ansible.builtin.service:
+    name: chrony
+    state: restarted
+
+- name: Apply Sysctl
+  ansible.posix.sysctl:
+    sysctl_file: /etc/sysctl.d/99-security-hardening.conf
+    reload: true
+
+- name: Restart Auditd
+  ansible.builtin.service:
+    name: auditd
+    state: restarted

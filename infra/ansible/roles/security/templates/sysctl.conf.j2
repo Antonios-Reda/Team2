@@ -1,0 +1,24 @@
+# Ansible Managed: Kernel Hardening Parameters
+
+# IP Spoofing protection
+net.ipv4.conf.all.rp_filter = 1
+net.ipv4.conf.default.rp_filter = 1
+
+# Ignore ICMP broadcast requests (Smurf attacks)
+net.ipv4.icmp_echo_ignore_broadcasts = 1
+
+# Disable source routing and redirects
+net.ipv4.conf.all.accept_source_route = 0
+net.ipv4.conf.all.send_redirects = 0
+net.ipv4.conf.all.accept_redirects = 0
+
+# Enable SYN flood protection
+net.ipv4.tcp_syncookies = 1
+
+# Log packets with impossible addresses
+net.ipv4.conf.all.log_martians = 1
+net.ipv4.conf.default.log_martians = 1
+
+# Disable IPv6 if not actively utilized by BoniCare infrastructure
+net.ipv6.conf.all.disable_ipv6 = 1
+net.ipv6.conf.default.disable_ipv6 = 1

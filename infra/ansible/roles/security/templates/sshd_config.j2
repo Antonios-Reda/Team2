@@ -1,0 +1,23 @@
+# Ansible Managed: Enterprise SSH Hardening for BoniCare
+Port {{ security_ssh_port }}
+Protocol 2
+
+# Authentication strictness
+PermitRootLogin no
+PubkeyAuthentication yes
+PasswordAuthentication no
+PermitEmptyPasswords no
+
+# Allow only explicitly defined deployment or admin users
+AllowUsers {{ security_allowed_users }}
+
+# Disable dangerous forwarding features
+X11Forwarding no
+AllowTcpForwarding no
+AllowAgentForwarding no
+
+# Logging and Timeouts
+LogLevel VERBOSE
+ClientAliveInterval 300
+ClientAliveCountMax 2
+MaxAuthTries 3

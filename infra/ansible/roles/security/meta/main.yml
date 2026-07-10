@@ -1,7 +1,7 @@
 ---
 galaxy_info:
   author: Team2 DevOps
-  description: Enterprise-grade Docker and Buildx installation role for BoniCare
+  description: Enterprise-grade OS hardening and security configuration role
   company: BoniCare
   license: MIT
   min_ansible_version: "2.14"
