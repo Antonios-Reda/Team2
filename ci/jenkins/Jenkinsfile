@@ -94,16 +94,17 @@ pipeline {
 
         stage('Build & Push Images') {
             steps {
-
-                sh """
-                    docker buildx bake \
-                        --push \
-                        --file ci/docker-bake.hcl \
-                        --set VERSION=${IMAGE_TAG} \
-                        --set REGISTRY=${REGISTRY} \
-                        --set NAMESPACE=${NAMESPACE}
-                """
-
+                withEnv([
+                    "VERSION=${IMAGE_TAG}",
+                    "REGISTRY=${REGISTRY}",
+                    "NAMESPACE=${NAMESPACE}"
+                ]) {
+                    sh '''
+                        docker buildx bake \
+                            --push \
+                            --file ci/docker-bake.hcl
+                    '''
+                }
             }
         }
 
