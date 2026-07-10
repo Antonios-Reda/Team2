@@ -32,13 +32,6 @@ group "default" {
 ###############################################################################
 
 target "_common" {
-    cache-from = [
-        "type=registry,ref=keroliskhalaf/bonicare-buildcache:cache"
-    ]
-
-    cache-to = [
-        "type=registry,ref=keroliskhalaf/bonicare-buildcache:cache,mode=max"
-    ]
 
     platforms = [
         "linux/amd64"
