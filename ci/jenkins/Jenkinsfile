@@ -274,7 +274,6 @@ pipeline {
                 -f ${COMPOSE_FILE} \
                 down -v
 
-            docker image prune -af || true
 
 
             docker logout || true
