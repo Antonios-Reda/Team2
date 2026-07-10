@@ -33,11 +33,11 @@ group "default" {
 
 target "_common" {
     cache-from = [
-        "type=local,src=/tmp/.buildx-cache"
+        "type=registry,ref=keroliskhalaf/bonicare-buildcache:cache"
     ]
 
     cache-to = [
-        "type=local,dest=/tmp/.buildx-cache,mode=max"
+        "type=registry,ref=keroliskhalaf/bonicare-buildcache:cache,mode=max"
     ]
 
     platforms = [
