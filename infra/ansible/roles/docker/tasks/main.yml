@@ -1,68 +1,19 @@
 ---
-- name: Update apt cache and install prerequisite packages
+- name: Install Docker and required ecosystem packages
   ansible.builtin.apt:
-    name: "{{ docker_required_packages }}"
+    name: ["docker-ce", "docker-ce-cli", "containerd.io", "docker-buildx-plugin", "docker-compose-plugin", "git"]
     state: present
     update_cache: true
 
-- name: Ensure keyrings directory exists with secure permissions
-  ansible.builtin.file:
-    path: /etc/apt/keyrings
-    state: directory
-    mode: '0755'
-
-- name: Download Docker official GPG key
-  ansible.builtin.get_url:
-    url: "{{ docker_gpg_url }}"
-    dest: /tmp/docker.gpg
-    mode: '0644'
-
-- name: De-armor Docker GPG key and store in keyrings
-  ansible.builtin.command:
-    cmd: "gpg --dearmor -o {{ docker_gpg_keyring_path }} /tmp/docker.gpg"
-    creates: "{{ docker_gpg_keyring_path }}"
-
-- name: Add Docker official APT repository
-  ansible.builtin.apt_repository:
-    repo: "{{ docker_apt_repository }}"
-    state: present
-    filename: docker
-
-- name: Install Docker Engine, Buildx, and Compose
-  ansible.builtin.apt:
-    name: "{{ docker_packages }}"
-    state: present
-    update_cache: true
-
-- name: Ensure Docker configuration directory exists
-  ansible.builtin.file:
-    path: /etc/docker
-    state: directory
-    mode: '0755'
-
-- name: Configure Docker daemon settings from template
+- name: Setup Docker configuration and service
   ansible.builtin.template:
     src: daemon.json.j2
     dest: /etc/docker/daemon.json
     mode: '0644'
-  notify:
-    - Restart Docker
+  notify: Restart Docker
 
-- name: Ensure Docker service is enabled and actively running
-  ansible.builtin.service:
-    name: docker
-    state: started
-    enabled: true
-
-- name: Ensure deployment user exists
+- name: Ensure deployment user is in docker group
   ansible.builtin.user:
-    name: "{{ deployment_user | default(deployment_user_fallback) }}"
-    state: present
-    create_home: true
-    shell: /bin/bash
-
-- name: Add deployment user to the docker group
-  ansible.builtin.user:
-    name: "{{ deployment_user | default(deployment_user_fallback) }}"
+    name: "{{ deployment_user }}"
     groups: docker
     append: true
