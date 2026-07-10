@@ -1,0 +1,6 @@
+---
+nginx_server_name: "{{ app_domain }}"
+nginx_ssl_dir: "/etc/nginx/ssl"
+# SSL configuration should be managed via Certbot or Vault; these are defaults
+nginx_cert_path: "/etc/letsencrypt/live/{{ app_domain }}/fullchain.pem"
+nginx_key_path: "/etc/letsencrypt/live/{{ app_domain }}/privkey.pem"
