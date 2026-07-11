@@ -15,7 +15,8 @@ spec:
     spec:
       containers:
       - name: webrtc
-        image: YOUR_WEBRTC_IMAGE:latest
+        image: compose-webrtc
+        imagePullPolicy: Never
         ports:
         - containerPort: 5002
           protocol: TCP

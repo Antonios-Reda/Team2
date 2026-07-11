@@ -15,9 +15,10 @@ spec:
     spec:
       containers:
       - name: frontend
-        image: keroliskhalaf1/telemedicine_frontend:37
+        image: compose-frontend
+        imagePullPolicy: Never
         ports:
-        - containerPort: 4200
+        - containerPort: 80 # 👈 عدل ده لـ 80 لأن الكونتينر جواه Nginx
 ---
 apiVersion: v1
 kind: Service
@@ -28,7 +29,7 @@ spec:
   selector:
     app: frontend
   ports:
-  - port: 4200
-    targetPort: 4200
-    nodePort: 30200
+  - port: 80         # 👈 بورت السيرفيس الداخلي
+    targetPort: 80   # 👈 البورت اللي هيسلم للكونتينر (Nginx)
+    nodePort: 30200  # البورت الخارجي اللي بتكتبه في الويندوز
   type: NodePort

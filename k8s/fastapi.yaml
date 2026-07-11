@@ -15,7 +15,8 @@ spec:
     spec:
       containers:
       - name: ai
-        image: YOUR_FASTAPI_IMAGE:latest
+        image: compose-ai-service
+        imagePullPolicy: Never
         ports:
         - containerPort: 8000
 ---
